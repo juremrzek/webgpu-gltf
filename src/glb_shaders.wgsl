@@ -1,6 +1,7 @@
 alias float2 = vec2<f32>;
 alias float3 = vec3<f32>;
 alias float4 = vec4<f32>;
+alias float = f32;
 
 struct VertexInput {
      @location(0) position: float3,
@@ -8,7 +9,8 @@ struct VertexInput {
 }
 struct VertexOutput {
      @builtin(position) position: float4,
-     @location(1) normal: float3
+     @location(1) normal: float3,
+     @location(2) brightness: float
 }
 struct Mat4Uniform {
      m: mat4x4<f32>,
@@ -21,6 +23,8 @@ struct Mat4Uniform {
 fn vertex_main(vin: VertexInput) -> VertexOutput {
      var vout: VertexOutput;
      vout.position = view_proj.m * node_transform.m * float4(vin.position, 1.0);
+     var light_direction = float4(1, 0, 0, 1);
+     vout.brightness = max(dot(light_direction, normalize(view_proj.m * node_transform.m * float4(vin.normal, 1.0))), 0.0);
      vout.normal = vin.normal;
      return vout;
 }
@@ -38,5 +42,5 @@ struct MaterialParams {
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
      var color = float4(material.base_color_factor.xyz, 1.0);
      color.w = 1.0;
-     return color;
+     return (color * 0.2) + (color * fin.brightness * 0.8);
 }
