@@ -18,14 +18,17 @@ struct Mat4Uniform {
 
 @group(0) @binding(0) var<uniform> view_proj: Mat4Uniform;
 @group(1) @binding(0) var<uniform> node_transform: Mat4Uniform;
+@group(1) @binding(1) var<uniform> inverse_transpose: Mat4Uniform;
 
 @vertex
 fn vertex_main(vin: VertexInput) -> VertexOutput {
      var vout: VertexOutput;
      vout.position = view_proj.m * node_transform.m * float4(vin.position, 1.0);
+
      var light_direction = float4(1, 0, 0, 1);
-     vout.brightness = max(dot(light_direction, normalize(view_proj.m * node_transform.m * float4(vin.normal, 1.0))), 0.0);
-     vout.normal = vin.normal;
+     var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
+     vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
+     vout.normal = float3(normal_tmp.xyz);
      return vout;
 }
 
@@ -48,9 +51,5 @@ fn linear_to_srgb(x: f32) -> f32 {
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
      var color = float4(material.base_color_factor.xyz, 1.0);
-     color.x = linear_to_srgb(color.x);
-     color.y = linear_to_srgb(color.y);
-     color.z = linear_to_srgb(color.z);
-     color.w = 1.0;
      return (color * 0.2) + (color * fin.brightness * 0.8);
 }

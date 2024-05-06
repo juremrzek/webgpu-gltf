@@ -324,6 +324,16 @@ export class GLTFNode {
         new Float32Array(buf.getMappedRange()).set(this.transform);
         buf.unmap();
         this.gpuUniforms = buf;
+        let inverse_transpose = mat4.create();
+        mat4.invert(inverse_transpose, this.transform);
+        mat4.transpose(inverse_transpose, inverse_transpose);
+
+        var inverse_transpose_buffer = device.createBuffer(
+            {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
+
+        new Float32Array(inverse_transpose_buffer.getMappedRange()).set(inverse_transpose);
+        inverse_transpose_buffer.unmap();
+        this.inverse_transpose_uniform = inverse_transpose_buffer;
     }
 
     buildRenderBundle(device,
@@ -333,13 +343,18 @@ export class GLTFNode {
         swapChainFormat,
         depthFormat) {
         var nodeParamsLayout = device.createBindGroupLayout({
-            entries:
-                [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}]
+            entries: [
+                {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+                {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
+            ]
         });
 
         this.bindGroup = device.createBindGroup({
             layout: nodeParamsLayout,
-            entries: [{binding: 0, resource: {buffer: this.gpuUniforms}}]
+            entries: [
+                {binding: 0, resource: {buffer: this.gpuUniforms}},
+                {binding: 1, resource: {buffer: this.inverse_transpose_uniform}}
+            ]
         });
 
         var bindGroupLayouts = [viewParamsLayout, nodeParamsLayout];
