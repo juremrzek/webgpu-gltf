@@ -51,5 +51,5 @@ fn linear_to_srgb(x: f32) -> f32 {
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
      var color = float4(material.base_color_factor.xyz, 1.0);
-     return (color * 0.2) + (color * fin.brightness * 0.8);
+     return (color * 0.3) + (color * fin.brightness * 0.7);
 }

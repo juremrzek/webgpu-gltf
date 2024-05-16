@@ -64,8 +64,8 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
     var renderBundles = glbFile.buildRenderBundles(
         device, shaderCache, viewParamsLayout, viewParamsBindGroup, swapChainFormat);
 
-    const defaultEye = vec3.set(vec3.create(), 0.0, 0.0, 1.0);
-    const center = vec3.set(vec3.create(), 0.0, 0.0, 0.0);
+    const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
+    const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
     const up = vec3.set(vec3.create(), 0.0, 1.0, 0.0);
     var camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     var proj = mat4.perspective(
