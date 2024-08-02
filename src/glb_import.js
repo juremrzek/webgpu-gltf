@@ -238,7 +238,7 @@ export class GLTFPrimitive {
 
         var layout = device.createPipelineLayout({
             bindGroupLayouts:
-                [bindGroupLayouts[0], bindGroupLayouts[1], this.material.bindGroupLayout],
+                [bindGroupLayouts[0], bindGroupLayouts[1], bindGroupLayouts[2], this.material.bindGroupLayout],
         });
 
         var vertexStage = {
@@ -270,7 +270,7 @@ export class GLTFPrimitive {
 
         var renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
-        bundleEncoder.setBindGroup(2, this.material.bindGroup);
+        bundleEncoder.setBindGroup(3, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
         bundleEncoder.setVertexBuffer(0,
             this.positions.view.gpuBuffer,
@@ -340,6 +340,8 @@ export class GLTFNode {
         shaderCache,
         viewParamsLayout,
         viewParamsBindGroup,
+        shadowParamsLayout,
+        shadowParamsBindGroup,
         swapChainFormat,
         depthFormat) {
         var nodeParamsLayout = device.createBindGroupLayout({
@@ -357,7 +359,7 @@ export class GLTFNode {
             ]
         });
 
-        var bindGroupLayouts = [viewParamsLayout, nodeParamsLayout];
+        var bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
 
         var bundleEncoder = device.createRenderBundleEncoder({
             colorFormats: [swapChainFormat],
@@ -366,6 +368,7 @@ export class GLTFNode {
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
         bundleEncoder.setBindGroup(1, this.bindGroup);
+        bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
 
         for (var i = 0; i < this.mesh.primitives.length; ++i) {
             this.mesh.primitives[i].buildRenderBundle(device,
@@ -579,7 +582,7 @@ export class GLBModel {
     }
 
     buildRenderBundles(
-        device, shaderCache, viewParamsLayout, viewParamsBindGroup, swapChainFormat) {
+        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat) {
         var renderBundles = [];
         for (var i = 0; i < this.nodes.length; ++i) {
             var n = this.nodes[i];
@@ -587,6 +590,8 @@ export class GLBModel {
                 shaderCache,
                 viewParamsLayout,
                 viewParamsBindGroup,
+                shadowParamsLayout,
+                shadowParamsBindGroup,
                 swapChainFormat,
                 'depth24plus-stencil8');
             renderBundles.push(bundle);

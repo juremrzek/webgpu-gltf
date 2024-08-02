@@ -19,6 +19,7 @@ struct Mat4Uniform {
 @group(0) @binding(0) var<uniform> view_proj: Mat4Uniform;
 @group(1) @binding(0) var<uniform> node_transform: Mat4Uniform;
 @group(1) @binding(1) var<uniform> inverse_transpose: Mat4Uniform;
+@group(2) @binding(0) var<uniform> shadow_transform: Mat4Uniform;
 
 @vertex
 fn vertex_main(vin: VertexInput) -> VertexOutput {
@@ -39,7 +40,7 @@ struct MaterialParams {
      roughness_factor: f32,
 };
 
-@group(2) @binding(0) var<uniform> material: MaterialParams;
+@group(3) @binding(0) var<uniform> material: MaterialParams;
 
 fn linear_to_srgb(x: f32) -> f32 {
      if (x <= 0.0031308) {

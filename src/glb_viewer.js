@@ -53,16 +53,24 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
     var viewParamsLayout = device.createBindGroupLayout({
         entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
     });
+    var shadowParamsLayout = device.createBindGroupLayout({
+        entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
+    });
 
     var viewParamBuf = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
     var viewParamsBindGroup = device.createBindGroup(
         {layout: viewParamsLayout, entries: [{binding: 0, resource: {buffer: viewParamBuf}}]});
 
+    var shadowParamsBuf = device.createBuffer(
+        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+    var shadowParamsBindGroup = device.createBindGroup(
+        {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
+
     var shaderCache = new GLBShaderCache(device);
 
     var renderBundles = glbFile.buildRenderBundles(
-        device, shaderCache, viewParamsLayout, viewParamsBindGroup, swapChainFormat);
+        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
@@ -112,7 +120,8 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
         if (glbBuffer != null) {
             glbFile = await uploadGLBModel(glbBuffer, device);
             renderBundles = glbFile.buildRenderBundles(
-                device, shaderCache, viewParamsLayout, viewParamsBindGroup, swapChainFormat);
+                device, shaderCache, viewParamsLayout, viewParamsBindGroup,
+                shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
             camera =
                 new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
             glbBuffer = null;
@@ -123,16 +132,42 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
 
         var commandEncoder = device.createCommandEncoder();
 
+        // Send shadow matrix to shaders
+
+
+        // Define vectors n and l, and scalar d
+        const n = [0, 1, 0]
+        const l = [1, 0, 0];
+        const x = [0, 0, 0]
+        const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
+
+        const dotNL = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+
+        // Define the matrix elements
+        const shadow_matrix = new Float32Array([
+            dotNL + d - n[0] * l[0], -n[1] * l[0], -n[2] * l[0], -d * l[0],
+            -n[0] * l[1], dotNL + d - n[1] * l[1], -n[2] * l[1], -d * l[1],
+            -n[0] * l[2], -n[1] * l[2], dotNL + d - n[2] * l[2], -d * l[2],
+            -n[0], -n[1], -n[2], dotNL
+        ]);
+
+        // Send projection matrix to shader*/
         projView = mat4.mul(projView, proj, camera.camera);
-        var upload = device.createBuffer({
+        var proj_mat_upload = device.createBuffer({
             size: 4 * 4 * 4,
             usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.COPY_SRC,
             mappedAtCreation: true
         });
-        new Float32Array(upload.getMappedRange()).set(projView);
-        upload.unmap();
+        new Float32Array(proj_mat_upload.getMappedRange()).set(projView);
+        proj_mat_upload.unmap();
 
-        commandEncoder.copyBufferToBuffer(upload, 0, viewParamBuf, 0, 4 * 4 * 4);
+        commandEncoder.copyBufferToBuffer(
+            proj_mat_upload, 0, 
+            viewParamBuf, 0, 
+            4 * 4 * 4
+        );
+
+        device.queue.writeBuffer(shadowParamsBuf, 0, shadow_matrix);
 
         var renderPass = commandEncoder.beginRenderPass(renderPassDesc);
         renderPass.executeBundles(renderBundles);
@@ -146,7 +181,7 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
         totalTimeMS += end - start;
         fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
         requestAnimationFrame(render);
-        upload.destroy();
+        proj_mat_upload.destroy();
     };
     requestAnimationFrame(render);
 })();
