@@ -49,6 +49,22 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
             stencilStoreOp: "store"
         }
     };
+    
+    var shadowRenderPassDesc = {
+        colorAttachments: [{
+            view: undefined,
+            loadOp: "load",
+            clearValue: [0.3, 0.3, 0.3, 1],
+            storeOp: "store"
+        }],
+        depthStencilAttachment: {
+            view: depthTexture.createView(),
+            depthLoadOp: "load",
+            depthStoreOp: "store",
+            stencilLoadOp: "load",
+            stencilStoreOp: "store"
+        }
+    };
 
     var viewParamsLayout = device.createBindGroupLayout({
         entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
@@ -70,7 +86,7 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
     var shaderCache = new GLBShaderCache(device);
 
     var renderBundles = glbFile.buildRenderBundles(
-        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, 'normal', swapChainFormat);
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
@@ -129,6 +145,7 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
 
         var start = performance.now();
         renderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView();
+        shadowRenderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView();
 
         var commandEncoder = device.createCommandEncoder();
 
@@ -168,11 +185,18 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
         );
 
         device.queue.writeBuffer(shadowParamsBuf, 0, shadow_matrix);
+        //device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([1]), 0, 1);
 
         var renderPass = commandEncoder.beginRenderPass(renderPassDesc);
         renderPass.executeBundles(renderBundles);
-
         renderPass.end();
+
+        //device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([1]), 0, 1);
+
+        var shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
+        shadowRenderPass.executeBundles(renderBundles);
+        shadowRenderPass.end();
+
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();
 

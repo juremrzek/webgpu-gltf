@@ -228,14 +228,6 @@ export class GLTFPrimitive {
             });
         }
 
-        // TODO: Multi-texturing
-        if (this.texcoords.length > 0) {
-            vertexBuffers.push({
-                arrayStride: this.texcoords[0].byteStride,
-                attributes: [{format: 'float32x2', offset: 0, shaderLocation: 2}]
-            });
-        }
-
         var layout = device.createPipelineLayout({
             bindGroupLayouts:
                 [bindGroupLayouts[0], bindGroupLayouts[1], bindGroupLayouts[2], this.material.bindGroupLayout],
@@ -342,6 +334,7 @@ export class GLTFNode {
         viewParamsBindGroup,
         shadowParamsLayout,
         shadowParamsBindGroup,
+        passType,
         swapChainFormat,
         depthFormat) {
         var nodeParamsLayout = device.createBindGroupLayout({
@@ -582,9 +575,10 @@ export class GLBModel {
     }
 
     buildRenderBundles(
-        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat) {
+        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, passType, swapChainFormat) {
         var renderBundles = [];
         for (var i = 0; i < this.nodes.length; ++i) {
+            console.log(i)
             var n = this.nodes[i];
             var bundle = n.buildRenderBundle(device,
                 shaderCache,
@@ -592,6 +586,7 @@ export class GLBModel {
                 viewParamsBindGroup,
                 shadowParamsLayout,
                 shadowParamsBindGroup,
+                passType,
                 swapChainFormat,
                 'depth24plus-stencil8');
             renderBundles.push(bundle);
