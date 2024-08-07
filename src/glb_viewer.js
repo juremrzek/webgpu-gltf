@@ -3,7 +3,6 @@ import {Controller} from "ez_canvas_controller";
 import {mat4, vec3} from "gl-matrix";
 
 import {uploadGLBModel} from "./glb_import.js";
-import {GLBShaderCache} from "./glb_shader_cache.js";
 
 (async () => {
     if (navigator.gpu === undefined) {
@@ -83,10 +82,11 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
     var shadowParamsBindGroup = device.createBindGroup(
         {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
 
-    var shaderCache = new GLBShaderCache(device);
-
     var renderBundles = glbFile.buildRenderBundles(
-        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, 'normal', swapChainFormat);
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+    var shadowRenderBundles = glbFile.buildRenderBundles(
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+    
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
@@ -136,7 +136,10 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
         if (glbBuffer != null) {
             glbFile = await uploadGLBModel(glbBuffer, device);
             renderBundles = glbFile.buildRenderBundles(
-                device, shaderCache, viewParamsLayout, viewParamsBindGroup,
+                device, viewParamsLayout, viewParamsBindGroup,
+                shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+            shadowRenderBundles = glbFile.buildRenderBundles(
+                device, viewParamsLayout, viewParamsBindGroup,
                 shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
             camera =
                 new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
@@ -185,16 +188,13 @@ import {GLBShaderCache} from "./glb_shader_cache.js";
         );
 
         device.queue.writeBuffer(shadowParamsBuf, 0, shadow_matrix);
-        //device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([1]), 0, 1);
 
         var renderPass = commandEncoder.beginRenderPass(renderPassDesc);
         renderPass.executeBundles(renderBundles);
         renderPass.end();
 
-        //device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([1]), 0, 1);
-
         var shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
-        shadowRenderPass.executeBundles(renderBundles);
+        shadowRenderPass.executeBundles(shadowRenderBundles);
         shadowRenderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);

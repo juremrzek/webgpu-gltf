@@ -1,4 +1,5 @@
 import {mat4} from "gl-matrix";
+import glbShaders from './basic_shaders.wgsl';
 
 const GLTFRenderMode = {
     POINTS: 0,
@@ -212,9 +213,8 @@ export class GLTFPrimitive {
 
     // Build the primitive render commands into the bundle
     buildRenderBundle(
-        device, shaderCache, bindGroupLayouts, bundleEncoder, swapChainFormat, depthFormat) {
-        var shaderModule = shaderCache.getShader(
-            this.normals, this.texcoords.length > 0, this.material.baseColorTexture);
+        device, bindGroupLayouts, bundleEncoder, swapChainFormat, depthFormat) {
+        var shaderModule = device.createShaderModule({code: glbShaders});
 
         var vertexBuffers = [{
             arrayStride: this.positions.byteStride,
@@ -329,12 +329,10 @@ export class GLTFNode {
     }
 
     buildRenderBundle(device,
-        shaderCache,
         viewParamsLayout,
         viewParamsBindGroup,
         shadowParamsLayout,
         shadowParamsBindGroup,
-        passType,
         swapChainFormat,
         depthFormat) {
         var nodeParamsLayout = device.createBindGroupLayout({
@@ -365,7 +363,6 @@ export class GLTFNode {
 
         for (var i = 0; i < this.mesh.primitives.length; ++i) {
             this.mesh.primitives[i].buildRenderBundle(device,
-                shaderCache,
                 bindGroupLayouts,
                 bundleEncoder,
                 swapChainFormat,
@@ -575,18 +572,16 @@ export class GLBModel {
     }
 
     buildRenderBundles(
-        device, shaderCache, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, passType, swapChainFormat) {
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat) {
         var renderBundles = [];
         for (var i = 0; i < this.nodes.length; ++i) {
             console.log(i)
             var n = this.nodes[i];
             var bundle = n.buildRenderBundle(device,
-                shaderCache,
                 viewParamsLayout,
                 viewParamsBindGroup,
                 shadowParamsLayout,
                 shadowParamsBindGroup,
-                passType,
                 swapChainFormat,
                 'depth24plus-stencil8');
             renderBundles.push(bundle);
