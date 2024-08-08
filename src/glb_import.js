@@ -215,6 +215,7 @@ export class GLTFPrimitive {
     // Build the primitive render commands into the bundle
     buildRenderBundle(
         device, bindGroupLayouts, bundleEncoder, renderPipeline, swapChainFormat, depthFormat) {
+        console.log(renderPipeline)
 
         bundleEncoder.setBindGroup(3, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
@@ -328,6 +329,33 @@ export class GLTFNode {
 
         this.renderBundle = bundleEncoder.finish();
         return this.renderBundle;
+    }
+
+    buildShadowRenderBundle(device,
+        viewParamsLayout,
+        viewParamsBindGroup,
+        shadowParamsLayout,
+        shadowParamsBindGroup,
+        renderPipeline,
+        swapChainFormat,
+        depthFormat){
+
+        var nodeParamsLayout = device.createBindGroupLayout({
+            entries: [
+                {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+            ]
+        });
+
+        this.bindGroup = device.createBindGroup({
+            layout: nodeParamsLayout,
+            entries: [
+                {binding: 0, resource: {buffer: this.gpuUniforms}},
+            ]
+        });
+
+
+
+
     }
 }
 

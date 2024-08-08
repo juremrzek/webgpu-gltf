@@ -42,13 +42,6 @@ struct MaterialParams {
 
 @group(3) @binding(0) var<uniform> material: MaterialParams;
 
-fn linear_to_srgb(x: f32) -> f32 {
-     if (x <= 0.0031308) {
-          return 12.92 * x;
-     }
-     return 1.055 * pow(x, 1.0 / 2.4) - 0.055;
-}
-
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
      var color = float4(material.base_color_factor.xyz, 1.0);

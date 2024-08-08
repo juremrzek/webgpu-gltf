@@ -3,7 +3,8 @@ import {Controller} from "ez_canvas_controller";
 import {mat4, vec3} from "gl-matrix";
 
 import {uploadGLBModel} from "./glb_import.js";
-import glbShaders from './basic_shaders.wgsl';
+import basicShaders from './basic_shaders.wgsl';
+import shadowShaders from './shadow_shaders.wgsl';
 
 (async () => {
     if (navigator.gpu === undefined) {
@@ -37,6 +38,12 @@ import glbShaders from './basic_shaders.wgsl';
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
 
+    const shadowDepthTexture = device.createTexture({
+        size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
+        format: 'depth24plus-stencil8',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
     var viewParamsLayout = device.createBindGroupLayout({
         entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
     });
@@ -65,7 +72,7 @@ import glbShaders from './basic_shaders.wgsl';
     var materialBindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
 
     var primitive = {topology: 'triangle-list'};
-    var shaderModule = device.createShaderModule({code: glbShaders});
+    var shaderModule = device.createShaderModule({code: basicShaders});
     var vertexBuffers = [{
         arrayStride: 12, // Adjusted stride to accommodate both position and color
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
@@ -79,6 +86,7 @@ import glbShaders from './basic_shaders.wgsl';
             [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]//, bindGroupLayouts[2], this.material.bindGroupLayout],
     });
     var pipelineDescriptor = {
+        label: 'Basic Pipeline',
         layout: pipelineLayout,
         vertex: {
             module: shaderModule,
@@ -98,7 +106,7 @@ import glbShaders from './basic_shaders.wgsl';
     var renderPassDesc = {
         colorAttachments: [{view: undefined, loadOp: "clear", clearValue: [0.3, 0.3, 0.3, 1], storeOp: "store"}],
         depthStencilAttachment: {
-            view: depthTexture.createView(),
+            view: shadowDepthTexture.createView(),
             depthLoadOp: "clear",
             depthClearValue: 1,
             depthStoreOp: "store",
@@ -107,6 +115,9 @@ import glbShaders from './basic_shaders.wgsl';
             stencilStoreOp: "store"
         }
     };
+
+    var renderBundles = glbFile.buildRenderBundles(
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
     
     var shadowRenderPassDesc = {
         colorAttachments: [{
@@ -117,18 +128,48 @@ import glbShaders from './basic_shaders.wgsl';
         }],
         depthStencilAttachment: {
             view: depthTexture.createView(),
-            depthLoadOp: "load",
+            depthLoadOp: "clear",
+            depthClearValue: 1,
             depthStoreOp: "store",
-            stencilLoadOp: "load",
+            stencilLoadOp: "clear",
+            stencilClearValue: 0,
             stencilStoreOp: "store"
         }
     };
 
-    var renderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
-    var shadowRenderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
-    
+     
+    const shadowShaderModule = device.createShaderModule({
+        code: shadowShaders,
+    });
+    var shadowPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts:
+            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout]
+    });
+
+    const shadowPipelineDescriptor = {
+        label: 'Shadow Pipeline',
+        layout: shadowPipelineLayout,
+        vertex: {
+            module: shadowShaderModule,
+            entryPoint: 'shadow_vertex_main',
+            buffers: vertexBuffers
+        },
+        fragment: {
+            module: shadowShaderModule,
+            entryPoint: 'shadow_fragment_main',
+            targets: [{format: swapChainFormat}]
+        },
+        primitive: {
+            topology: 'triangle-list',
+        },
+        depthStencil: {format: depthTexture.format, depthWriteEnabled: true, depthCompare: 'less'}
+    }
+
+    const shadowRenderPipeline = device.createRenderPipeline(shadowPipelineDescriptor);
+
+    const shadowRenderBundles = glbFile.buildRenderBundles(
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, shadowRenderPipeline, swapChainFormat);
+
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
@@ -156,39 +197,10 @@ import glbShaders from './basic_shaders.wgsl';
     };
     controller.registerForCanvas(canvas);
 
-    // Setup onchange listener for file uploads
-    var glbBuffer = null;
-    document.getElementById("uploadGLB").onchange =
-        function uploadGLB() {
-            document.getElementById("loading-text").hidden = false;
-            var reader = new FileReader();
-            reader.onerror = function () {
-                alert("error reading GLB file");
-            };
-            reader.onload = function () {
-                glbBuffer = reader.result;
-            };
-            reader.readAsArrayBuffer(this.files[0]);
-        }
-
     var fpsDisplay = document.getElementById("fps");
     var numFrames = 0;
     var totalTimeMS = 0;
     const render = async () => {
-        if (glbBuffer != null) {
-            glbFile = await uploadGLBModel(glbBuffer, device);
-            
-            renderBundles = glbFile.buildRenderBundles(
-                device, viewParamsLayout, viewParamsBindGroup,
-                shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
-            shadowRenderBundles = glbFile.buildRenderBundles(
-                device, viewParamsLayout, viewParamsBindGroup,
-                shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
-            camera =
-                new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
-            glbBuffer = null;
-        }
-
         var start = performance.now();
         renderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView();
         shadowRenderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView();
