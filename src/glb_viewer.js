@@ -23,7 +23,7 @@ import shadowShaders from './shadow_shaders.wgsl';
 
     var glbFile =
         await fetch(
-            "http://localhost:8000/scene_floor_and_cube.glb")
+            "http://localhost:8000/scene_floor_ground_level.glb")
             .then(res => res.arrayBuffer().then(buf => uploadGLBModel(buf, device)));
 
     var canvas = document.getElementById("webgpu-canvas");
@@ -50,7 +50,8 @@ import shadowShaders from './shadow_shaders.wgsl';
     var nodeParamsLayout = device.createBindGroupLayout({
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
-            {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
+            {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+            {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
         ]
     });
     var shadowParamsLayout = device.createBindGroupLayout({
@@ -212,18 +213,25 @@ import shadowShaders from './shadow_shaders.wgsl';
 
         // Define vectors n and l, and scalar d
         const n = [0, 1, 0]
-        const l = [1, 0, 0];
+        const l = [0, 100, 0];
         const x = [0, 0, 0]
         const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
 
         const dotNL = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
 
         // Define the matrix elements
-        const shadow_matrix = new Float32Array([
+        var shadow_matrix = new Float32Array([
             dotNL + d - n[0] * l[0], -n[1] * l[0], -n[2] * l[0], -d * l[0],
             -n[0] * l[1], dotNL + d - n[1] * l[1], -n[2] * l[1], -d * l[1],
             -n[0] * l[2], -n[1] * l[2], dotNL + d - n[2] * l[2], -d * l[2],
             -n[0], -n[1], -n[2], dotNL
+        ]);
+
+        shadow_matrix = new Float32Array([
+            l[1], -l[0], 0, 0,
+            0, 0, 0, 0,
+            0, -l[2], l[1], 0,
+            0, -1, 0, l[1]
         ]);
 
         // Send projection matrix to shader*/

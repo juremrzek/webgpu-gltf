@@ -265,7 +265,7 @@ export class GLTFNode {
         this.bindGroup = null;
     }
 
-    upload(device) {
+    upload(device, node_id) {
         var buf = device.createBuffer(
             {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
         new Float32Array(buf.getMappedRange()).set(this.transform);
@@ -281,6 +281,13 @@ export class GLTFNode {
         new Float32Array(inverse_transpose_buffer.getMappedRange()).set(inverse_transpose);
         inverse_transpose_buffer.unmap();
         this.inverse_transpose_uniform = inverse_transpose_buffer;
+        console.log("node id:", node_id)
+        var node_id_buffer = device.createBuffer(
+            {size: 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
+
+        new Uint32Array(node_id_buffer.getMappedRange())[0] = node_id;
+        node_id_buffer.unmap();
+        this.node_id_uniform = node_id_buffer;
     }
 
     buildRenderBundle(device,
@@ -294,7 +301,8 @@ export class GLTFNode {
         var nodeParamsLayout = device.createBindGroupLayout({
             entries: [
                 {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
-                {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
+                {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+                {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
             ]
         });
 
@@ -302,7 +310,8 @@ export class GLTFNode {
             layout: nodeParamsLayout,
             entries: [
                 {binding: 0, resource: {buffer: this.gpuUniforms}},
-                {binding: 1, resource: {buffer: this.inverse_transpose_uniform}}
+                {binding: 1, resource: {buffer: this.inverse_transpose_uniform}},
+                {binding: 2, resource: {buffer: this.node_id_uniform}}
             ]
         });
 
@@ -315,7 +324,7 @@ export class GLTFNode {
         });
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
-        bundleEncoder.setBindGroup(1, this.bindGroup);
+        bundleEncoder.setBindGroup(1, this.bindGroup); //node bind group
         bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
 
         for (var i = 0; i < this.mesh.primitives.length; ++i) {
@@ -353,7 +362,16 @@ export class GLTFNode {
             ]
         });
 
+        var bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
 
+        var bundleEncoder = device.createRenderBundleEncoder({
+            colorFormats: [swapChainFormat],
+            depthStencilFormat: depthFormat,
+        });
+
+        bundleEncoder.setBindGroup(0, viewParamsBindGroup);
+        bundleEncoder.setBindGroup(1, this.bindGroup);
+        bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
 
 
     }
@@ -719,7 +737,7 @@ export async function uploadGLBModel(buffer, device) {
         var n = gltfNodes[i];
         if (n['mesh'] !== undefined) {
             var node = new GLTFNode(n['name'], meshes[n['mesh']], readNodeTransform(n));
-            node.upload(device);
+            node.upload(device, i);
             nodes.push(node);
         }
     }
