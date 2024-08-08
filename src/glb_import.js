@@ -215,20 +215,6 @@ export class GLTFPrimitive {
     // Build the primitive render commands into the bundle
     buildRenderBundle(
         device, bindGroupLayouts, bundleEncoder, renderPipeline, swapChainFormat, depthFormat) {
-        
-
-        /*var vertexBuffers = [{
-            arrayStride: this.positions.byteStride,
-            attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
-        }];
-
-        if (this.normals) {
-            vertexBuffers.push({
-                arrayStride: this.normals.byteStride,
-                attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
-            });
-        }*/
-        
 
         bundleEncoder.setBindGroup(3, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);

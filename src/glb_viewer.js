@@ -22,7 +22,7 @@ import glbShaders from './basic_shaders.wgsl';
 
     var glbFile =
         await fetch(
-            "https://cdn.willusher.io/glb/DamagedHelmet.glb")
+            "http://localhost:8000/scene_floor_and_cube.glb")
             .then(res => res.arrayBuffer().then(buf => uploadGLBModel(buf, device)));
 
     var canvas = document.getElementById("webgpu-canvas");
@@ -31,16 +31,40 @@ import glbShaders from './basic_shaders.wgsl';
     context.configure(
         {device: device, format: swapChainFormat, usage: GPUTextureUsage.RENDER_ATTACHMENT});
 
-    //var layout = device.createPipelineLayout({
-    //    bindGroupLayouts:
-    //        [bindGroupLayouts[0], bindGroupLayouts[1], bindGroupLayouts[2], this.material.bindGroupLayout],
-    //});
-
     var depthTexture = device.createTexture({
         size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
         format: "depth24plus-stencil8",
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
+
+    var viewParamsLayout = device.createBindGroupLayout({
+        entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
+    });
+    var nodeParamsLayout = device.createBindGroupLayout({
+        entries: [
+            {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+            {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
+        ]
+    });
+    var shadowParamsLayout = device.createBindGroupLayout({
+        entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
+    });
+
+    var viewParamBuf = device.createBuffer(
+        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+    var viewParamsBindGroup = device.createBindGroup(
+        {layout: viewParamsLayout, entries: [{binding: 0, resource: {buffer: viewParamBuf}}]});
+
+    var shadowParamsBuf = device.createBuffer(
+        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+    var shadowParamsBindGroup = device.createBindGroup(
+        {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
+    
+
+    var layoutEntries = [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}]
+    layoutEntries.push({binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {}});
+    layoutEntries.push({binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {}});
+    var materialBindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
 
     var primitive = {topology: 'triangle-list'};
     var shaderModule = device.createShaderModule({code: glbShaders});
@@ -52,8 +76,12 @@ import glbShaders from './basic_shaders.wgsl';
         arrayStride: 12,
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
     });
+    var layout = device.createPipelineLayout({
+        bindGroupLayouts:
+            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]//, bindGroupLayouts[2], this.material.bindGroupLayout],
+    });
     var pipelineDescriptor = {
-        layout: "auto",
+        layout: layout,
         vertex: {
             module: shaderModule,
             entryPoint: 'vertex_main',
@@ -97,23 +125,6 @@ import glbShaders from './basic_shaders.wgsl';
             stencilStoreOp: "store"
         }
     };
-
-    var viewParamsLayout = device.createBindGroupLayout({
-        entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
-    });
-    var shadowParamsLayout = device.createBindGroupLayout({
-        entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
-    });
-
-    var viewParamBuf = device.createBuffer(
-        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    var viewParamsBindGroup = device.createBindGroup(
-        {layout: viewParamsLayout, entries: [{binding: 0, resource: {buffer: viewParamBuf}}]});
-
-    var shadowParamsBuf = device.createBuffer(
-        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    var shadowParamsBindGroup = device.createBindGroup(
-        {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
 
     var renderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
@@ -168,6 +179,7 @@ import glbShaders from './basic_shaders.wgsl';
     const render = async () => {
         if (glbBuffer != null) {
             glbFile = await uploadGLBModel(glbBuffer, device);
+            
             renderBundles = glbFile.buildRenderBundles(
                 device, viewParamsLayout, viewParamsBindGroup,
                 shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
