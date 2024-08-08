@@ -62,8 +62,6 @@ import glbShaders from './basic_shaders.wgsl';
     
 
     var layoutEntries = [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}]
-    layoutEntries.push({binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {}});
-    layoutEntries.push({binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {}});
     var materialBindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
 
     var primitive = {topology: 'triangle-list'};
@@ -76,12 +74,12 @@ import glbShaders from './basic_shaders.wgsl';
         arrayStride: 12,
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
     });
-    var layout = device.createPipelineLayout({
+    var pipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
             [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]//, bindGroupLayouts[2], this.material.bindGroupLayout],
     });
     var pipelineDescriptor = {
-        layout: layout,
+        layout: pipelineLayout,
         vertex: {
             module: shaderModule,
             entryPoint: 'vertex_main',

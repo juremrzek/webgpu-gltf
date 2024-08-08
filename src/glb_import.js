@@ -447,22 +447,6 @@ export class GLTFMaterial {
             }
         }];
 
-        if (this.baseColorTexture) {
-            // Defaults for sampler and texture are fine, just make the objects
-            // exist to pick them up
-            layoutEntries.push({binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {}});
-            layoutEntries.push({binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {}});
-
-            bindGroupEntries.push({
-                binding: 1,
-                resource: this.baseColorTexture.sampler,
-            });
-            bindGroupEntries.push({
-                binding: 2,
-                resource: this.baseColorTexture.imageView,
-            });
-        }
-
         this.bindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
 
         this.bindGroup = device.createBindGroup({
