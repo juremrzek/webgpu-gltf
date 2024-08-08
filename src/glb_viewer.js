@@ -3,6 +3,7 @@ import {Controller} from "ez_canvas_controller";
 import {mat4, vec3} from "gl-matrix";
 
 import {uploadGLBModel} from "./glb_import.js";
+import glbShaders from './basic_shaders.wgsl';
 
 (async () => {
     if (navigator.gpu === undefined) {
@@ -30,11 +31,43 @@ import {uploadGLBModel} from "./glb_import.js";
     context.configure(
         {device: device, format: swapChainFormat, usage: GPUTextureUsage.RENDER_ATTACHMENT});
 
+    //var layout = device.createPipelineLayout({
+    //    bindGroupLayouts:
+    //        [bindGroupLayouts[0], bindGroupLayouts[1], bindGroupLayouts[2], this.material.bindGroupLayout],
+    //});
+
     var depthTexture = device.createTexture({
         size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
         format: "depth24plus-stencil8",
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
+
+    var primitive = {topology: 'triangle-list'};
+    var shaderModule = device.createShaderModule({code: glbShaders});
+    var vertexBuffers = [{
+        arrayStride: 12, // Adjusted stride to accommodate both position and color
+        attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
+    }];
+    vertexBuffers.push({
+        arrayStride: 12,
+        attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
+    });
+    var pipelineDescriptor = {
+        layout: "auto",
+        vertex: {
+            module: shaderModule,
+            entryPoint: 'vertex_main',
+            buffers: vertexBuffers
+        },
+        fragment: {
+            module: shaderModule,
+            entryPoint: 'fragment_main',
+            targets: [{format: swapChainFormat}]
+        },
+        primitive: primitive,
+        depthStencil: {format: depthTexture.format, depthWriteEnabled: true, depthCompare: 'less'}
+    };
+    var renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
     var renderPassDesc = {
         colorAttachments: [{view: undefined, loadOp: "clear", clearValue: [0.3, 0.3, 0.3, 1], storeOp: "store"}],
@@ -83,9 +116,9 @@ import {uploadGLBModel} from "./glb_import.js";
         {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
 
     var renderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
     var shadowRenderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
     
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
@@ -137,10 +170,10 @@ import {uploadGLBModel} from "./glb_import.js";
             glbFile = await uploadGLBModel(glbBuffer, device);
             renderBundles = glbFile.buildRenderBundles(
                 device, viewParamsLayout, viewParamsBindGroup,
-                shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+                shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
             shadowRenderBundles = glbFile.buildRenderBundles(
                 device, viewParamsLayout, viewParamsBindGroup,
-                shadowParamsLayout, shadowParamsBindGroup, swapChainFormat);
+                shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
             camera =
                 new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
             glbBuffer = null;

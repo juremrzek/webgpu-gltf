@@ -13,7 +13,7 @@ struct VertexOutput {
      @location(2) brightness: float
 }
 struct Mat4Uniform {
-     m: mat4x4<f32>,
+     m: mat4x4<f32>
 }
 
 @group(0) @binding(0) var<uniform> view_proj: Mat4Uniform;

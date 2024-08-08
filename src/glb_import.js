@@ -1,5 +1,6 @@
 import {mat4} from "gl-matrix";
-import glbShaders from './basic_shaders.wgsl';
+
+let a = 2;
 
 const GLTFRenderMode = {
     POINTS: 0,
@@ -213,10 +214,10 @@ export class GLTFPrimitive {
 
     // Build the primitive render commands into the bundle
     buildRenderBundle(
-        device, bindGroupLayouts, bundleEncoder, swapChainFormat, depthFormat) {
-        var shaderModule = device.createShaderModule({code: glbShaders});
+        device, bindGroupLayouts, bundleEncoder, renderPipeline, swapChainFormat, depthFormat) {
+        
 
-        var vertexBuffers = [{
+        /*var vertexBuffers = [{
             arrayStride: this.positions.byteStride,
             attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
         }];
@@ -226,41 +227,8 @@ export class GLTFPrimitive {
                 arrayStride: this.normals.byteStride,
                 attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
             });
-        }
-
-        var layout = device.createPipelineLayout({
-            bindGroupLayouts:
-                [bindGroupLayouts[0], bindGroupLayouts[1], bindGroupLayouts[2], this.material.bindGroupLayout],
-        });
-
-        var vertexStage = {
-            module: shaderModule,
-            entryPoint: 'vertex_main',
-            buffers: vertexBuffers
-        };
-        var fragmentStage = {
-            module: shaderModule,
-            entryPoint: 'fragment_main',
-            targets: [{format: swapChainFormat}]
-        };
-
-        var primitive = {topology: 'triangle-list'};
-        if (this.topology == GLTFRenderMode.TRIANGLE_STRIP) {
-            primitive.topology = 'triangle-strip';
-            primitive.stripIndexFormat =
-                this.indices.componentType == GLTFComponentType.UNSIGNED_SHORT ? 'uint16'
-                    : 'uint32';
-        }
-
-        var pipelineDescriptor = {
-            layout: layout,
-            vertex: vertexStage,
-            fragment: fragmentStage,
-            primitive: primitive,
-            depthStencil: {format: depthFormat, depthWriteEnabled: true, depthCompare: 'less'}
-        };
-
-        var renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+        }*/
+        
 
         bundleEncoder.setBindGroup(3, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
@@ -333,6 +301,7 @@ export class GLTFNode {
         viewParamsBindGroup,
         shadowParamsLayout,
         shadowParamsBindGroup,
+        renderPipeline,
         swapChainFormat,
         depthFormat) {
         var nodeParamsLayout = device.createBindGroupLayout({
@@ -352,6 +321,7 @@ export class GLTFNode {
 
         var bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
 
+        // Create the render bundle encoder with the correct formats
         var bundleEncoder = device.createRenderBundleEncoder({
             colorFormats: [swapChainFormat],
             depthStencilFormat: depthFormat,
@@ -365,6 +335,7 @@ export class GLTFNode {
             this.mesh.primitives[i].buildRenderBundle(device,
                 bindGroupLayouts,
                 bundleEncoder,
+                renderPipeline,
                 swapChainFormat,
                 depthFormat);
         }
@@ -572,7 +543,7 @@ export class GLBModel {
     }
 
     buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, swapChainFormat) {
+        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat) {
         var renderBundles = [];
         for (var i = 0; i < this.nodes.length; ++i) {
             console.log(i)
@@ -582,6 +553,7 @@ export class GLBModel {
                 viewParamsBindGroup,
                 shadowParamsLayout,
                 shadowParamsBindGroup,
+                renderPipeline,
                 swapChainFormat,
                 'depth24plus-stencil8');
             renderBundles.push(bundle);
