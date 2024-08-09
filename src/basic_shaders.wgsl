@@ -26,7 +26,7 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = view_proj.m * node_transform.m * float4(vin.position, 1.0);
 
-    var light_direction = float4(1, 0, 0, 1);
+    var light_direction = float4(normalize(float3(1, 1, 0)), 1);
     var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
     vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
     vout.normal = float3(normal_tmp.xyz);
@@ -44,6 +44,6 @@ struct MaterialParams {
 
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    var color = float4(material.base_color_factor.xyz, 1.0);
-    return (color * 0.3) + (color * fin.brightness * 0.7);
+    var color = material.base_color_factor.xyz;
+    return float4((color * 0.3) + (color * fin.brightness * 0.7), 1);
 }

@@ -21,18 +21,16 @@ struct Mat4Uniform {
 @vertex
 fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    var shadow_position = float4(vin.position, 1.0);
     if (node_id != 1u) {
-        shadow_position = float4(0, 0, 0, 1);
+        vout.position = float4(0, 0, 0, 1);
     }
     else {
-        shadow_position = shadow_transform.m * shadow_position;
+        vout.position = view_proj.m * shadow_transform.m * node_transform.m * float4(vin.position, 1.0);
     }
-    vout.position = view_proj.m * node_transform.m * shadow_position;
     return vout;
 }
 
 @fragment
 fn shadow_fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    return (vec4(0.0, 1.0, 1.0, 1.0));
+    return (vec4(0.0, 0.0, 0, 1));
 }

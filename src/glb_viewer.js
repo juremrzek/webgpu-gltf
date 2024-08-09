@@ -23,7 +23,7 @@ import shadowShaders from './shadow_shaders.wgsl';
 
     var glbFile =
         await fetch(
-            "http://localhost:8000/scene_floor_ground_level.glb")
+            "http://localhost:8000/scene_centered_cube.glb")
             .then(res => res.arrayBuffer().then(buf => uploadGLBModel(buf, device)));
 
     var canvas = document.getElementById("webgpu-canvas");
@@ -97,10 +97,28 @@ import shadowShaders from './shadow_shaders.wgsl';
         fragment: {
             module: shaderModule,
             entryPoint: 'fragment_main',
-            targets: [{format: swapChainFormat}]
+            targets: [{
+                format: swapChainFormat,
+                blend: {
+                    color: {
+                        srcFactor: 'src-alpha',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                    alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                }
+            }]
         },
         primitive: primitive,
-        depthStencil: {format: depthTexture.format, depthWriteEnabled: true, depthCompare: 'less'}
+        depthStencil: {
+            format: depthTexture.format,
+            depthWriteEnabled: true,
+            depthCompare: 'less'
+        }
     };
     var renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
@@ -158,7 +176,22 @@ import shadowShaders from './shadow_shaders.wgsl';
         fragment: {
             module: shadowShaderModule,
             entryPoint: 'shadow_fragment_main',
-            targets: [{format: swapChainFormat}]
+            targets: [{
+                format: swapChainFormat,
+                blend: {
+                    color: {
+                        srcFactor: 'src-alpha',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                    alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                    writeMask: GPUColorWrite.ALL,
+                }
+            }],
         },
         primitive: {
             topology: 'triangle-list',
@@ -212,28 +245,22 @@ import shadowShaders from './shadow_shaders.wgsl';
 
 
         // Define vectors n and l, and scalar d
-        const n = [0, 1, 0]
-        const l = [0, 100, 0];
-        const x = [0, 0, 0]
+        const n = [0, 1, 0, 0]
+        const l = [100, 100, 0, 1];
+        const x = [0, 0, 0, 0]
         const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
 
         const dotNL = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
 
-        // Define the matrix elements
         var shadow_matrix = new Float32Array([
-            dotNL + d - n[0] * l[0], -n[1] * l[0], -n[2] * l[0], -d * l[0],
-            -n[0] * l[1], dotNL + d - n[1] * l[1], -n[2] * l[1], -d * l[1],
-            -n[0] * l[2], -n[1] * l[2], dotNL + d - n[2] * l[2], -d * l[2],
-            -n[0], -n[1], -n[2], dotNL
+            dotNL - n[0] * l[0] + d, -n[0] * l[1], -n[0] * l[2], -n[0],
+            -n[1] * l[0], dotNL + d - n[1] * l[1], -n[1] * l[2], -n[1],
+            -n[2] * l[0], -n[2] * l[1], dotNL - n[2] * l[2] - d, -n[2],
+            -d * l[0], d * l[1], -d * l[2], dotNL
         ]);
 
-        shadow_matrix = new Float32Array([
-            l[1], -l[0], 0, 0,
-            0, 0, 0, 0,
-            0, -l[2], l[1], 0,
-            0, -1, 0, l[1]
-        ]);
 
+        
         // Send projection matrix to shader*/
         projView = mat4.mul(projView, proj, camera.camera);
         var proj_mat_upload = device.createBuffer({
