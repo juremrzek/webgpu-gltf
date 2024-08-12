@@ -22,11 +22,11 @@ struct Mat4Uniform {
 @vertex
 fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    if (node_id != 1u) {
-        vout.position = float4(0, 0, 0, 1);
+    if (node_id == 1) {
+        vout.position = projection.m * view.m * shadow_transform.m * model.m * float4(vin.position, 1.0);
     }
     else {
-        vout.position = projection.m * view.m * shadow_transform.m * model.m * float4(vin.position, 1.0);
+        vout.position = float4(-2, -2, -2, 1);
     }
     return vout;
 }
