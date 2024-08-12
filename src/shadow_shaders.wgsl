@@ -13,8 +13,9 @@ struct Mat4Uniform {
     m: mat4x4<f32>
 }
 
-@group(0) @binding(0) var<uniform> view_proj: Mat4Uniform;
-@group(1) @binding(0) var<uniform> node_transform: Mat4Uniform;
+@group(0) @binding(0) var<uniform> projection: Mat4Uniform;
+@group(0) @binding(1) var<uniform> view: Mat4Uniform;
+@group(1) @binding(0) var<uniform> model: Mat4Uniform;
 @group(2) @binding(0) var<uniform> shadow_transform: Mat4Uniform;
 @group(1) @binding(2) var<uniform> node_id: u32;
 
@@ -25,7 +26,7 @@ fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
         vout.position = float4(0, 0, 0, 1);
     }
     else {
-        vout.position = view_proj.m * shadow_transform.m * node_transform.m * float4(vin.position, 1.0);
+        vout.position = projection.m * view.m * shadow_transform.m * model.m * float4(vin.position, 1.0);
     }
     return vout;
 }
