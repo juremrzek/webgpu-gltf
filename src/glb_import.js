@@ -237,16 +237,16 @@ export class GLTFNode {
         this.mesh = mesh;
         this.transform = transform;
 
-        this.gpuUniforms = null;
+        this.modelMatrix = null;
         this.bindGroup = null;
     }
 
     upload(device, node_id) {
-        var buf = device.createBuffer(
+        var modelMatrixBuffer = device.createBuffer(
             {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
-        new Float32Array(buf.getMappedRange()).set(this.transform);
-        buf.unmap();
-        this.gpuUniforms = buf;
+        new Float32Array(modelMatrixBuffer.getMappedRange()).set(this.transform);
+        modelMatrixBuffer.unmap();
+        this.modelMatrix = modelMatrixBuffer;
         let inverse_transpose = mat4.create();
         mat4.invert(inverse_transpose, this.transform);
         mat4.transpose(inverse_transpose, inverse_transpose);
@@ -285,7 +285,7 @@ export class GLTFNode {
         this.bindGroup = device.createBindGroup({
             layout: nodeParamsLayout,
             entries: [
-                {binding: 0, resource: {buffer: this.gpuUniforms}},
+                {binding: 0, resource: {buffer: this.modelMatrix}},
                 {binding: 1, resource: {buffer: this.inverse_transpose_uniform}},
                 {binding: 2, resource: {buffer: this.node_id_uniform}}
             ]
@@ -334,7 +334,7 @@ export class GLTFNode {
         this.bindGroup = device.createBindGroup({
             layout: nodeParamsLayout,
             entries: [
-                {binding: 0, resource: {buffer: this.gpuUniforms}},
+                {binding: 0, resource: {buffer: this.modelMatrix}},
             ]
         });
 
@@ -354,37 +354,20 @@ export class GLTFNode {
 }
 
 function readNodeTransform(node) {
-    if (node['matrix']) {
-        var m = node['matrix'];
-        // Both glTF and gl matrix are column major
-        return mat4.fromValues(m[0],
-            m[1],
-            m[2],
-            m[3],
-            m[4],
-            m[5],
-            m[6],
-            m[7],
-            m[8],
-            m[9],
-            m[10],
-            m[11],
-            m[12],
-            m[13],
-            m[14],
-            m[15]);
+    if (node.matrix) {
+        return node.matrix;
     } else {
         var scale = [1, 1, 1];
         var rotation = [0, 0, 0, 1];
         var translation = [0, 0, 0];
-        if (node['scale']) {
-            scale = node['scale'];
+        if (node.scale) {
+            scale = node.scale;
         }
-        if (node['rotation']) {
-            rotation = node['rotation'];
+        if (node.rotation) {
+            rotation = node.rotation;
         }
-        if (node['translation']) {
-            translation = node['translation'];
+        if (node.translation) {
+            translation = node.translation;
         }
         var m = mat4.create();
         return mat4.fromRotationTranslationScale(m, rotation, translation, scale);
@@ -394,15 +377,15 @@ function readNodeTransform(node) {
 function flattenGLTFChildren(nodes, node, parent_transform) {
     var tfm = readNodeTransform(node);
     var tfm = mat4.mul(tfm, parent_transform, tfm);
-    node['matrix'] = tfm;
-    node['scale'] = undefined;
-    node['rotation'] = undefined;
-    node['translation'] = undefined;
-    if (node['children']) {
-        for (var i = 0; i < node['children'].length; ++i) {
-            flattenGLTFChildren(nodes, nodes[node['children'][i]], tfm);
+    node.matrix = tfm;
+    node.scale = undefined;
+    node.rotation = undefined;
+    node.translation = undefined;
+    if (node.children) {
+        for (var i = 0; i < node.children.length; ++i) {
+            flattenGLTFChildren(nodes, nodes[node.children[i]], tfm);
         }
-        node['children'] = [];
+        node.children = [];
     }
 }
 
@@ -604,11 +587,11 @@ export async function uploadGLBModel(buffer, device) {
     }
 
     var nodes = [];
-    var gltfNodes = makeGLTFSingleLevel(glbJsonData['nodes']);
+    var gltfNodes = makeGLTFSingleLevel(glbJsonData.nodes);
     for (var i = 0; i < gltfNodes.length; ++i) {
         var n = gltfNodes[i];
-        if (n['mesh'] !== undefined) {
-            var node = new GLTFNode(n['name'], meshes[n['mesh']], readNodeTransform(n));
+        if (n.mesh !== undefined) {
+            var node = new GLTFNode(n.name, meshes[n.mesh], readNodeTransform(n));
             node.upload(device, i);
             nodes.push(node);
         }
