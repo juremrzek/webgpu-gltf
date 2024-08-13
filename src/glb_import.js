@@ -43,51 +43,6 @@ function gltfTypeNumComponents(type) {
     }
 }
 
-function gltfTypeToWebGPU(componentType, type) {
-    var typeStr = null;
-    switch (componentType) {
-        case GLTFComponentType.BYTE:
-            typeStr = 'char';
-            break;
-        case GLTFComponentType.UNSIGNED_BYTE:
-            typeStr = 'uchar';
-            break;
-        case GLTFComponentType.SHORT:
-            typeStr = 'short';
-            break;
-        case GLTFComponentType.UNSIGNED_SHORT:
-            typeStr = 'ushort';
-            break;
-        case GLTFComponentType.INT:
-            typeStr = 'int';
-            break;
-        case GLTFComponentType.UNSIGNED_INT:
-            typeStr = 'uint';
-            break;
-        case GLTFComponentType.FLOAT:
-            typeStr = 'float';
-            break;
-        case GLTFComponentType.DOUBLE:
-            typeStr = 'double';
-            break;
-        default:
-            alert('Unrecognized GLTF Component Type?');
-    }
-
-    switch (gltfTypeNumComponents(type)) {
-        case 1:
-            return typeStr;
-        case 2:
-            return typeStr + '2';
-        case 3:
-            return typeStr + '3';
-        case 4:
-            return typeStr + '4';
-        default:
-            alert('Too many components!');
-    }
-}
-
 function gltfTypeSize(componentType, type) {
     var typeSize = 0;
     switch (componentType) {
