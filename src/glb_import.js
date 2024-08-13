@@ -23,21 +23,6 @@ const GLTFComponentType = {
     DOUBLE: 5130,
 };
 
-const GLTFTextureFilter = {
-    NEAREST: 9728,
-    LINEAR: 9729,
-    NEAREST_MIPMAP_NEAREST: 9984,
-    LINEAR_MIPMAP_NEAREST: 9985,
-    NEAREST_MIPMAP_LINEAR: 9986,
-    LINEAR_MIPMAP_LINEAR: 9987,
-};
-
-const GLTFTextureWrap = {
-    REPEAT: 10497,
-    CLAMP_TO_EDGE: 33071,
-    MIRRORED_REPEAT: 33648,
-};
-
 function alignTo(val, align) {
     return Math.floor((val + align - 1) / align) * align;
 }
@@ -201,11 +186,10 @@ export class GLTFAccessor {
 }
 
 export class GLTFPrimitive {
-    constructor(indices, positions, normals, texcoords, material, topology) {
+    constructor(indices, positions, normals, material, topology) {
         this.indices = indices;
         this.positions = positions;
         this.normals = normals;
-        this.texcoords = texcoords;
         this.material = material;
         this.topology = topology;
     }
@@ -224,12 +208,6 @@ export class GLTFPrimitive {
         if (this.normals) {
             bundleEncoder.setVertexBuffer(
                 1, this.normals.view.gpuBuffer, this.normals.byteOffset, this.normals.length);
-        }
-        if (this.texcoords.length > 0) {
-            bundleEncoder.setVertexBuffer(2,
-                this.texcoords[0].view.gpuBuffer,
-                this.texcoords[0].byteOffset,
-                this.texcoords[0].length);
         }
         if (this.indices) {
             var indexFormat = this.indices.componentType == GLTFComponentType.UNSIGNED_SHORT
@@ -437,22 +415,18 @@ function makeGLTFSingleLevel(nodes) {
 }
 
 export class GLTFMaterial {
-    constructor(material, textures) {
+    constructor(material) {
         this.baseColorFactor = [1, 1, 1, 1];
-        this.baseColorTexture = null;
-        // padded to float4
         this.emissiveFactor = [0, 0, 0, 1];
         this.metallicFactor = 1.0;
         this.roughnessFactor = 1.0;
+        console.log("material:")
+        console.log(material)
 
         if (material['pbrMetallicRoughness'] !== undefined) {
             var pbr = material['pbrMetallicRoughness'];
             if (pbr['baseColorFactor'] !== undefined) {
                 this.baseColorFactor = pbr['baseColorFactor'];
-            }
-            if (pbr['baseColorTexture'] !== undefined) {
-                // TODO multiple texcoords
-                this.baseColorTexture = textures[pbr['baseColorTexture']['index']];
             }
             if (pbr['metallicFactor'] !== undefined) {
                 this.metallicFactor = pbr['metallicFactor'];
@@ -497,57 +471,6 @@ export class GLTFMaterial {
             layout: this.bindGroupLayout,
             entries: bindGroupEntries,
         });
-    }
-}
-
-export class GLTFSampler {
-    constructor(sampler, device) {
-        var magFilter = sampler['magFilter'] === undefined ||
-            sampler['magFilter'] == GLTFTextureFilter.LINEAR
-            ? 'linear'
-            : 'nearest';
-        var minFilter = sampler['minFilter'] === undefined ||
-            sampler['minFilter'] == GLTFTextureFilter.LINEAR
-            ? 'linear'
-            : 'nearest';
-
-        var wrapS = 'repeat';
-        if (sampler['wrapS'] !== undefined) {
-            if (sampler['wrapS'] == GLTFTextureFilter.REPEAT) {
-                wrapS = 'repeat';
-            } else if (sampler['wrapS'] == GLTFTextureFilter.CLAMP_TO_EDGE) {
-                wrapS = 'clamp-to-edge';
-            } else {
-                wrapS = 'mirror-repeat';
-            }
-        }
-
-        var wrapT = 'repeat';
-        if (sampler['wrapT'] !== undefined) {
-            if (sampler['wrapT'] == GLTFTextureFilter.REPEAT) {
-                wrapT = 'repeat';
-            } else if (sampler['wrapT'] == GLTFTextureFilter.CLAMP_TO_EDGE) {
-                wrapT = 'clamp-to-edge';
-            } else {
-                wrapT = 'mirror-repeat';
-            }
-        }
-
-        this.sampler = device.createSampler({
-            magFilter: magFilter,
-            minFilter: minFilter,
-            addressModeU: wrapS,
-            addressModeV: wrapT,
-        });
-    }
-}
-
-export class GLTFTexture {
-    constructor(sampler, image) {
-        this.gltfsampler = sampler;
-        this.sampler = sampler.sampler;
-        this.image = image;
-        this.imageView = image.createView();
     }
 }
 
@@ -607,56 +530,10 @@ export async function uploadGLBModel(buffer, device) {
         bufferViews.push(new GLTFBufferView(glbBuffer, glbJsonData.bufferViews[i]));
     }
 
-    var images = [];
-    if (glbJsonData['images'] !== undefined) {
-        for (var i = 0; i < glbJsonData['images'].length; ++i) {
-            var imgJson = glbJsonData['images'][i];
-            var imageView = new GLTFBufferView(
-                glbBuffer, glbJsonData['bufferViews'][imgJson['bufferView']]);
-            var imgBlob = new Blob([imageView.buffer], {type: imgJson['mime/type']});
-            var img = await createImageBitmap(imgBlob);
-
-            // TODO: For glTF we need to look at where an image is used to know
-            // if it should be srgb or not. We basically need to pass through
-            // the material list and find if the texture which uses this image
-            // is used by a metallic/roughness param
-            var gpuImg = device.createTexture({
-                size: [img.width, img.height, 1],
-                format: 'rgba8unorm-srgb',
-                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST |
-                    GPUTextureUsage.RENDER_ATTACHMENT,
-            });
-
-            var src = {source: img};
-            var dst = {texture: gpuImg};
-            device.queue.copyExternalImageToTexture(src, dst, [img.width, img.height, 1]);
-
-            images.push(gpuImg);
-        }
-    }
-
-    var defaultSampler = new GLTFSampler({}, device);
-    var samplers = [];
-    if (glbJsonData['samplers'] !== undefined) {
-        for (var i = 0; i < glbJsonData['samplers'].length; ++i) {
-            samplers.push(new GLTFSampler(glbJsonData['samplers'][i], device));
-        }
-    }
-
-    var textures = [];
-    if (glbJsonData['textures'] !== undefined) {
-        for (var i = 0; i < glbJsonData['textures'].length; ++i) {
-            var tex = glbJsonData['textures'][i];
-            var sampler =
-                tex['sampler'] !== undefined ? samplers[tex['sampler']] : defaultSampler;
-            textures.push(new GLTFTexture(sampler, images[tex['source']]));
-        }
-    }
-
     var defaultMaterial = new GLTFMaterial({});
     var materials = [];
     for (var i = 0; i < glbJsonData['materials'].length; ++i) {
-        materials.push(new GLTFMaterial(glbJsonData['materials'][i], textures));
+        materials.push(new GLTFMaterial(glbJsonData['materials'][i]));
     }
 
     var meshes = [];
@@ -688,7 +565,6 @@ export async function uploadGLBModel(buffer, device) {
 
             var positions = null;
             var normals = null;
-            var texcoords = [];
             for (var attr in prim['attributes']) {
                 var accessor = glbJsonData['accessors'][prim['attributes'][attr]];
                 var viewID = accessor['bufferView'];
@@ -698,8 +574,6 @@ export async function uploadGLBModel(buffer, device) {
                     positions = new GLTFAccessor(bufferViews[viewID], accessor);
                 } else if (attr == 'NORMAL') {
                     normals = new GLTFAccessor(bufferViews[viewID], accessor);
-                } else if (attr.startsWith('TEXCOORD')) {
-                    texcoords.push(new GLTFAccessor(bufferViews[viewID], accessor));
                 }
             }
 
@@ -711,7 +585,7 @@ export async function uploadGLBModel(buffer, device) {
             }
 
             var gltfPrim =
-                new GLTFPrimitive(indices, positions, normals, texcoords, material, topology);
+                new GLTFPrimitive(indices, positions, normals, material, topology);
             primitives.push(gltfPrim);
         }
         meshes.push(new GLTFMesh(mesh['name'], primitives));
