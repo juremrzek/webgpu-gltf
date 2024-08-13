@@ -23,7 +23,7 @@ import shadowShaders from './shadow_shaders.wgsl';
 
     var glbFile =
         await fetch(
-            "http://localhost:8000/scene_centered_cube.glb")
+            "http://localhost:8000/scene_floor_cube_on_ground.glb")
             .then(res => res.arrayBuffer().then(buf => uploadGLBModel(buf, device)));
 
     var canvas = document.getElementById("webgpu-canvas");
@@ -37,12 +37,7 @@ import shadowShaders from './shadow_shaders.wgsl';
         format: "depth24plus-stencil8",
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
-
-    const shadowDepthTexture = device.createTexture({
-        size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
-        format: 'depth24plus-stencil8',
-        usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
+    var depthTextureView = depthTexture.createView();
 
     var viewParamsLayout = device.createBindGroupLayout({
         entries: [
@@ -132,9 +127,13 @@ import shadowShaders from './shadow_shaders.wgsl';
     var renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
     var renderPassDesc = {
-        colorAttachments: [{view: undefined, loadOp: "clear", clearValue: [0.3, 0.3, 0.3, 1], storeOp: "store"}],
+        colorAttachments: [{
+            view: undefined,
+            loadOp: "clear",
+            clearValue: [0.3, 0.3, 0.3, 1], storeOp: "store"
+        }],
         depthStencilAttachment: {
-            view: shadowDepthTexture.createView(),
+            view: depthTextureView,
             depthLoadOp: "clear",
             depthClearValue: 1,
             depthStoreOp: "store",
@@ -155,11 +154,11 @@ import shadowShaders from './shadow_shaders.wgsl';
             storeOp: "store"
         }],
         depthStencilAttachment: {
-            view: depthTexture.createView(),
-            depthLoadOp: "clear",
+            view: depthTextureView,
+            depthLoadOp: "load",
             depthClearValue: 1,
             depthStoreOp: "store",
-            stencilLoadOp: "clear",
+            stencilLoadOp: "load",
             stencilClearValue: 0,
             stencilStoreOp: "store"
         }
@@ -205,7 +204,10 @@ import shadowShaders from './shadow_shaders.wgsl';
         primitive: {
             topology: 'triangle-list',
         },
-        depthStencil: {format: depthTexture.format, depthWriteEnabled: true, depthCompare: 'less'}
+        depthStencil: {
+            format: depthTexture.format,
+            depthWriteEnabled: true,
+            depthCompare: 'less'}
     }
 
     const shadowRenderPipeline = device.createRenderPipeline(shadowPipelineDescriptor);
@@ -244,8 +246,9 @@ import shadowShaders from './shadow_shaders.wgsl';
     var totalTimeMS = 0;
     const render = async () => {
         var start = performance.now();
-        renderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView();
-        shadowRenderPassDesc.colorAttachments[0].view = context.getCurrentTexture().createView();
+        var colorTextureView = context.getCurrentTexture().createView();
+        renderPassDesc.colorAttachments[0].view = colorTextureView
+        shadowRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
         var commandEncoder = device.createCommandEncoder();
 
@@ -255,7 +258,7 @@ import shadowShaders from './shadow_shaders.wgsl';
         // Define vectors n and l, and scalar d
         const n = [0, 1, 0, 0]
         const l = [100, 100, 0, 1];
-        const x = [0, 0, 0, 0]
+        const x = [0, -0.1, 0, 0]
         const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
 
         const dotNL = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
