@@ -9,8 +9,6 @@ const GLTFRenderMode = {
     LINE_STRIP: 3,
     TRIANGLES: 4,
     TRIANGLE_STRIP: 5,
-    // Note: fans are not supported in WebGPU, use should be
-    // an error or converted into a list/strip
     TRIANGLE_FAN: 6,
 };
 

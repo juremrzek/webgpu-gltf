@@ -6,19 +6,23 @@ import {uploadGLBModel} from "./glb_import.js";
 import basicShaders from './basic_shaders.wgsl';
 import shadowShaders from './shadow_shaders.wgsl';
 
-(async () => {
-    if (navigator.gpu === undefined) {
-        document.getElementById("webgpu-canvas").setAttribute("style", "display:none;");
-        document.getElementById("no-webgpu").setAttribute("style", "display:block;");
-        return;
-    }
+function get_shadow_matrix(n, l ,x) {
+    const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
+    const dotNL = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
 
+    return new Float32Array([
+        dotNL - n[0] * l[0] + d, -n[0] * l[1], -n[0] * l[2], -n[0],
+        -n[1] * l[0], dotNL + d - n[1] * l[1], -n[1] * l[2], -n[1],
+        -n[2] * l[0], -n[2] * l[1], dotNL - n[2] * l[2] - d, -n[2],
+        -d * l[0], d * l[1], -d * l[2], dotNL
+    ]);
+}
+
+(async () => {
+    if (navigator.gpu === undefined) return;
     var adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-        document.getElementById("webgpu-canvas").setAttribute("style", "display:none;");
-        document.getElementById("no-webgpu").setAttribute("style", "display:block;");
-        return;
-    }
+
+    if (!adapter) return;
     var device = await adapter.requestDevice();
 
     var glbFile =
@@ -79,7 +83,7 @@ import shadowShaders from './shadow_shaders.wgsl';
     var primitive = {topology: 'triangle-list'};
     var shaderModule = device.createShaderModule({code: basicShaders});
     var vertexBuffers = [{
-        arrayStride: 12, // Adjusted stride to accommodate both position and color
+        arrayStride: 12, 
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
     }];
     vertexBuffers.push({
@@ -88,7 +92,7 @@ import shadowShaders from './shadow_shaders.wgsl';
     });
     var pipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
-            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]//, bindGroupLayouts[2], this.material.bindGroupLayout],
+            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]
     });
     var pipelineDescriptor = {
         label: 'Basic Pipeline',
@@ -252,23 +256,10 @@ import shadowShaders from './shadow_shaders.wgsl';
 
         var commandEncoder = device.createCommandEncoder();
 
-        // Send shadow matrix to shaders
-
-
-        // Define vectors n and l, and scalar d
         const n = [0, 1, 0, 0]
         const l = [100, 100, 0, 1];
         const x = [0, -0.1, 0, 0]
-        const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
-
-        const dotNL = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
-
-        var shadow_matrix = new Float32Array([
-            dotNL - n[0] * l[0] + d, -n[0] * l[1], -n[0] * l[2], -n[0],
-            -n[1] * l[0], dotNL + d - n[1] * l[1], -n[1] * l[2], -n[1],
-            -n[2] * l[0], -n[2] * l[1], dotNL - n[2] * l[2] - d, -n[2],
-            -d * l[0], d * l[1], -d * l[2], dotNL
-        ]);
+        const shadow_matrix = get_shadow_matrix(n, l, x);
 
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
