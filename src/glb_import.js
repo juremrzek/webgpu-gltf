@@ -434,12 +434,6 @@ export class GLBModel {
 
 // Upload a GLB model and return it
 export async function uploadGLBModel(buffer, device) {
-    document.getElementById("loading-text").hidden = false;
-    // The file header and chunk 0 header
-    // TODO: It sounds like the spec does allow for multiple binary chunks,
-    // so then how do you know which chunk a buffer exists in? Maybe the buffer
-    // id corresponds to the binary chunk ID? Would have to find info in the
-    // spec or an example file to check this
     let header = new Uint32Array(buffer, 0, 5);
     if (header[0] != 0x46546C67) {
         alert('This does not appear to be a glb file?');
@@ -455,9 +449,6 @@ export async function uploadGLBModel(buffer, device) {
         console.log('TODO: Multiple binary chunks in file');
     }
 
-    // TODO: Later could look at merging buffers and actually using the starting
-    // offsets, but want to avoid uploading the entire buffer since it may
-    // contain packed images
     let bufferViews = [];
     for (let i = 0; i < glbJsonData.bufferViews.length; ++i) {
         bufferViews.push(new GLTFBufferView(glbBuffer, glbJsonData.bufferViews[i]));
@@ -532,6 +523,5 @@ export async function uploadGLBModel(buffer, device) {
             nodes.push(node);
         }
     }
-    document.getElementById("loading-text").hidden = true;
     return new GLBModel(nodes);
 }
