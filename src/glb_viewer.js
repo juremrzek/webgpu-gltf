@@ -24,11 +24,12 @@ function get_shadow_matrix(n, l ,x) {
 
     if (!adapter) return;
     let device = await adapter.requestDevice();
-
-    let glbFile =
-        await fetch(
+    let glbModel;
+    let glbFile = await fetch(
             "http://localhost:8000/scene_floor_cube_on_ground.glb")
-            .then(res => res.arrayBuffer().then(buf => uploadGLBModel(buf, device)));
+            .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
+    
+    let nodes = glbFile.nodes;
 
     let canvas = document.getElementById("webgpu-canvas");
     let context = canvas.getContext("webgpu");
@@ -226,7 +227,7 @@ function get_shadow_matrix(n, l ,x) {
     let camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     let projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
-
+    console.log(projection_matrix)
     let controller = new Controller();
     controller.mousemove = function (prev, cur, evt) {
         if (evt.buttons == 1) {
@@ -258,7 +259,7 @@ function get_shadow_matrix(n, l ,x) {
 
         const n = [0, 1, 0, 0]
         const l = [100, 100, 0, 1];
-        const x = [0, -0.1, 0, 0]
+        const x = [0, -0.01, 0, 0]
         const shadow_matrix = get_shadow_matrix(n, l, x);
 
         const view_matrix = camera.camera;

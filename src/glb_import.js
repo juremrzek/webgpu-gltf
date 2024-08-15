@@ -184,16 +184,17 @@ export class GLTFMesh {
 }
 
 export class GLTFNode {
-    constructor(name, mesh, transform) {
+    constructor(name, mesh, transform, id) {
         this.name = name;
         this.mesh = mesh;
         this.transform = transform;
+        this.id = id;
 
         this.modelMatrix = null;
         this.bindGroup = null;
     }
 
-    upload(device, node_id) {
+    upload(device) {
         let modelMatrixBuffer = device.createBuffer(
             {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
         new Float32Array(modelMatrixBuffer.getMappedRange()).set(this.transform);
@@ -209,11 +210,11 @@ export class GLTFNode {
         new Float32Array(inverse_transpose_buffer.getMappedRange()).set(inverse_transpose);
         inverse_transpose_buffer.unmap();
         this.inverse_transpose_uniform = inverse_transpose_buffer;
-        console.log("node id:", node_id)
+        console.log("node id:", this.id)
         let node_id_buffer = device.createBuffer(
             {size: 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
 
-        new Uint32Array(node_id_buffer.getMappedRange())[0] = node_id;
+        new Uint32Array(node_id_buffer.getMappedRange())[0] = this.id;
         node_id_buffer.unmap();
         this.node_id_uniform = node_id_buffer;
     }
@@ -445,10 +446,6 @@ export async function uploadGLBModel(buffer, device) {
     let binaryHeader = new Uint32Array(buffer, 20 + header[3], 2);
     let glbBuffer = new GLTFBuffer(buffer, binaryHeader[0], 28 + header[3]);
 
-    if (28 + header[3] + binaryHeader[0] != buffer.byteLength) {
-        console.log('TODO: Multiple binary chunks in file');
-    }
-
     let bufferViews = [];
     for (let i = 0; i < glbJsonData.bufferViews.length; ++i) {
         bufferViews.push(new GLTFBufferView(glbBuffer, glbJsonData.bufferViews[i]));
@@ -518,8 +515,8 @@ export async function uploadGLBModel(buffer, device) {
     for (let i = 0; i < gltfNodes.length; ++i) {
         let n = gltfNodes[i];
         if (n.mesh !== undefined) {
-            let node = new GLTFNode(n.name, meshes[n.mesh], readNodeTransform(n));
-            node.upload(device, i);
+            let node = new GLTFNode(n.name, meshes[n.mesh], readNodeTransform(n), i);
+            node.upload(device);
             nodes.push(node);
         }
     }
