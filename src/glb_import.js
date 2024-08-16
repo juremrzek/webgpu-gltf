@@ -1,7 +1,5 @@
 import {mat4} from "gl-matrix";
 
-let a = 2;
-
 const GLTFRenderMode = {
     POINTS: 0,
     LINE: 1,
@@ -419,7 +417,7 @@ export class GLBModel {
         for (let i = 0; i < this.nodes.length; ++i) {
             console.log(i)
             let n = this.nodes[i];
-            let bundle = n.buildRenderBundle(device,
+            const bundle = n.buildRenderBundle(device,
                 viewParamsLayout,
                 viewParamsBindGroup,
                 shadowParamsLayout,
@@ -435,23 +433,23 @@ export class GLBModel {
 
 // Upload a GLB model and return it
 export async function uploadGLBModel(buffer, device) {
-    let header = new Uint32Array(buffer, 0, 5);
+    const header = new Uint32Array(buffer, 0, 5);
     if (header[0] != 0x46546C67) {
         alert('This does not appear to be a glb file?');
         return;
     }
-    let glbJsonData =
+    const glbJsonData =
         JSON.parse(new TextDecoder('utf-8').decode(new Uint8Array(buffer, 20, header[3])));
 
-    let binaryHeader = new Uint32Array(buffer, 20 + header[3], 2);
-    let glbBuffer = new GLTFBuffer(buffer, binaryHeader[0], 28 + header[3]);
+    const binaryHeader = new Uint32Array(buffer, 20 + header[3], 2);
+    const glbBuffer = new GLTFBuffer(buffer, binaryHeader[0], 28 + header[3]);
 
     let bufferViews = [];
     for (let i = 0; i < glbJsonData.bufferViews.length; ++i) {
         bufferViews.push(new GLTFBufferView(glbBuffer, glbJsonData.bufferViews[i]));
     }
 
-    let defaultMaterial = new GLTFMaterial({});
+    const defaultMaterial = new GLTFMaterial({});
     let materials = [];
     for (let i = 0; i < glbJsonData.materials.length; ++i) {
         materials.push(new GLTFMaterial(glbJsonData.materials[i]));
@@ -459,7 +457,7 @@ export async function uploadGLBModel(buffer, device) {
 
     let meshes = [];
     for (let i = 0; i < glbJsonData.meshes.length; ++i) {
-        let mesh = glbJsonData.meshes[i];
+        const mesh = glbJsonData.meshes[i];
 
         let primitives = [];
         for (let j = 0; j < mesh.primitives.length; ++j) {
@@ -467,8 +465,8 @@ export async function uploadGLBModel(buffer, device) {
 
             let indices = null;
             if (glbJsonData.accessors[primitive.indices] !== undefined) {
-                let accessor = glbJsonData.accessors[primitive.indices];
-                let viewID = accessor.bufferView;
+                const accessor = glbJsonData.accessors[primitive.indices];
+                const viewID = accessor.bufferView;
                 bufferViews[viewID].addUsage(GPUBufferUsage.INDEX);
                 indices = new GLTFAccessor(bufferViews[viewID], accessor);
             }
@@ -476,8 +474,8 @@ export async function uploadGLBModel(buffer, device) {
             let positions = null;
             let normals = null;
             for (let attr in primitive.attributes) {
-                let accessor = glbJsonData.accessors[primitive.attributes[attr]];
-                let viewID = accessor.bufferView;
+                const accessor = glbJsonData.accessors[primitive.attributes[attr]];
+                const viewID = accessor.bufferView;
                 bufferViews[viewID].addUsage(GPUBufferUsage.VERTEX);
                 if (attr == 'POSITION') {
                     positions = new GLTFAccessor(bufferViews[viewID], accessor);
@@ -493,7 +491,7 @@ export async function uploadGLBModel(buffer, device) {
                 material = defaultMaterial;
             }
 
-            let gltfPrim =
+            const gltfPrim =
                 new GLTFPrimitive(indices, positions, normals, material);
             primitives.push(gltfPrim);
         }
@@ -515,7 +513,7 @@ export async function uploadGLBModel(buffer, device) {
     for (let i = 0; i < gltfNodes.length; ++i) {
         let n = gltfNodes[i];
         if (n.mesh !== undefined) {
-            let node = new GLTFNode(n.name, meshes[n.mesh], readNodeTransform(n), i);
+            const node = new GLTFNode(n.name, meshes[n.mesh], readNodeTransform(n), i);
             node.upload(device);
             nodes.push(node);
         }

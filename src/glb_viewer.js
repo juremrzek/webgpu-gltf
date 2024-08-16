@@ -20,70 +20,68 @@ function get_shadow_matrix(n, l ,x) {
 
 (async () => {
     if (navigator.gpu === undefined) return;
-    let adapter = await navigator.gpu.requestAdapter();
+    const adapter = await navigator.gpu.requestAdapter();
 
     if (!adapter) return;
-    let device = await adapter.requestDevice();
+    const device = await adapter.requestDevice();
     let glbModel;
-    let glbFile = await fetch(
+    const glbFile = await fetch(
             "http://localhost:8000/scene_floor_cube_on_ground.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
-    
-    let nodes = glbFile.nodes;
 
-    let canvas = document.getElementById("webgpu-canvas");
-    let context = canvas.getContext("webgpu");
-    let swapChainFormat = "bgra8unorm";
+    const canvas = document.getElementById("webgpu-canvas");
+    const context = canvas.getContext("webgpu");
+    const swapChainFormat = "bgra8unorm";
     context.configure(
         {device: device, format: swapChainFormat, usage: GPUTextureUsage.RENDER_ATTACHMENT});
 
-    let depthTexture = device.createTexture({
+    const depthTexture = device.createTexture({
         size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
         format: "depth24plus-stencil8",
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
-    let depthTextureView = depthTexture.createView();
+    const depthTextureView = depthTexture.createView();
 
-    let viewParamsLayout = device.createBindGroupLayout({
+    const viewParamsLayout = device.createBindGroupLayout({
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
             {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
         ]
     });
-    let nodeParamsLayout = device.createBindGroupLayout({
+    const nodeParamsLayout = device.createBindGroupLayout({
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
             {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
             {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
         ]
     });
-    let shadowParamsLayout = device.createBindGroupLayout({
+    const shadowParamsLayout = device.createBindGroupLayout({
         entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
     });
 
-    let projectionBuffer = device.createBuffer(
+    const projectionBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    let viewBuffer = device.createBuffer(
+    const viewBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    let viewParamsBindGroup = device.createBindGroup(
+    const viewParamsBindGroup = device.createBindGroup(
         {layout: viewParamsLayout, entries: [
             {binding: 0, resource: {buffer: projectionBuffer}},
             {binding: 1, resource: {buffer:viewBuffer}}
         ]}
     );
 
-    let shadowParamsBuf = device.createBuffer(
+    const shadowParamsBuf = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    let shadowParamsBindGroup = device.createBindGroup(
+    const shadowParamsBindGroup = device.createBindGroup(
         {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
     
 
-    let layoutEntries = [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}]
-    let materialBindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
+    const layoutEntries = [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}]
+    const materialBindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
 
-    let primitive = {topology: 'triangle-list'};
-    let shaderModule = device.createShaderModule({code: basicShaders});
-    let vertexBuffers = [{
+    const primitive = {topology: 'triangle-list'};
+    const shaderModule = device.createShaderModule({code: basicShaders});
+    const vertexBuffers = [{
         arrayStride: 12, 
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
     }];
@@ -91,11 +89,11 @@ function get_shadow_matrix(n, l ,x) {
         arrayStride: 12,
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
     });
-    let pipelineLayout = device.createPipelineLayout({
+    const pipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
             [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]
     });
-    let pipelineDescriptor = {
+    const pipelineDescriptor = {
         label: 'Basic Pipeline',
         layout: pipelineLayout,
         vertex: {
@@ -129,9 +127,9 @@ function get_shadow_matrix(n, l ,x) {
             depthCompare: 'less'
         }
     };
-    let renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+    const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
-    let renderPassDesc = {
+    const renderPassDesc = {
         colorAttachments: [{
             view: undefined,
             loadOp: "clear",
@@ -148,10 +146,10 @@ function get_shadow_matrix(n, l ,x) {
         }
     };
 
-    let renderBundles = glbFile.buildRenderBundles(
+    const renderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
     
-    let shadowRenderPassDesc = {
+    const shadowRenderPassDesc = {
         colorAttachments: [{
             view: undefined,
             loadOp: "load",
@@ -173,7 +171,7 @@ function get_shadow_matrix(n, l ,x) {
     const shadowShaderModule = device.createShaderModule({
         code: shadowShaders,
     });
-    let shadowPipelineLayout = device.createPipelineLayout({
+    const shadowPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
             [viewParamsLayout, nodeParamsLayout, shadowParamsLayout]
     });
@@ -224,11 +222,11 @@ function get_shadow_matrix(n, l ,x) {
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
     const up = vec3.set(vec3.create(), 0.0, 1.0, 0.0);
-    let camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
-    let projection_matrix = mat4.perspective(
+    const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
+    const projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
     console.log(projection_matrix)
-    let controller = new Controller();
+    const controller = new Controller();
     controller.mousemove = function (prev, cur, evt) {
         if (evt.buttons == 1) {
             camera.rotate(prev, cur);
@@ -246,16 +244,16 @@ function get_shadow_matrix(n, l ,x) {
     };
     controller.registerForCanvas(canvas);
 
-    let fpsDisplay = document.getElementById("fps");
+    const fpsDisplay = document.getElementById("fps");
     let numFrames = 0;
     let totalTimeMS = 0;
     const render = async () => {
         let start = performance.now();
-        let colorTextureView = context.getCurrentTexture().createView();
+        const colorTextureView = context.getCurrentTexture().createView();
         renderPassDesc.colorAttachments[0].view = colorTextureView
         shadowRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
-        let commandEncoder = device.createCommandEncoder();
+        const commandEncoder = device.createCommandEncoder();
 
         const n = [0, 1, 0, 0]
         const l = [100, 100, 0, 1];
@@ -267,18 +265,18 @@ function get_shadow_matrix(n, l ,x) {
         device.queue.writeBuffer(viewBuffer, 0, view_matrix);
         device.queue.writeBuffer(shadowParamsBuf, 0, shadow_matrix);
 
-        let renderPass = commandEncoder.beginRenderPass(renderPassDesc);
+        const renderPass = commandEncoder.beginRenderPass(renderPassDesc);
         renderPass.executeBundles(renderBundles);
         renderPass.end();
 
-        let shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
+        const shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
         shadowRenderPass.executeBundles(shadowRenderBundles);
         shadowRenderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();
 
-        let end = performance.now();
+        const end = performance.now();
         numFrames += 1;
         totalTimeMS += end - start;
         fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
