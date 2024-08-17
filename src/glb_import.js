@@ -145,8 +145,7 @@ export class GLTFPrimitive {
     }
 
     // Build the primitive render commands into the bundle
-    buildRenderBundle(
-        device, bindGroupLayouts, bundleEncoder, renderPipeline, swapChainFormat, depthFormat) {
+    buildRenderBundle(bundleEncoder, renderPipeline) {
         console.log(renderPipeline)
 
         bundleEncoder.setBindGroup(3, this.material.bindGroup);
@@ -248,7 +247,7 @@ export class GLTFNode {
         if (renderPipeline.label === "Shadow Pipeline"){
             bundleEncoder = device.createRenderBundleEncoder({
                 colorFormats: [],
-                depthStencilFormat: depthFormat
+                depthStencilFormat: 'depth32float'
             });
         }
         else {
@@ -263,62 +262,13 @@ export class GLTFNode {
         bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
 
         for (let i = 0; i < this.mesh.primitives.length; ++i) {
-            this.mesh.primitives[i].buildRenderBundle(device,
-                bindGroupLayouts,
-                bundleEncoder,
-                renderPipeline,
-                swapChainFormat,
-                depthFormat);
+            this.mesh.primitives[i].buildRenderBundle(bundleEncoder, renderPipeline);
         }
 
         this.renderBundle = bundleEncoder.finish();
         return this.renderBundle;
     }
 
-    buildShadowRenderBundle(device,
-        viewParamsLayout,
-        viewParamsBindGroup,
-        shadowParamsLayout,
-        shadowParamsBindGroup,
-        renderPipeline,
-        swapChainFormat,
-        depthFormat){
-
-        let nodeParamsLayout = device.createBindGroupLayout({
-            entries: [
-                {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
-            ]
-        });
-
-        this.bindGroup = device.createBindGroup({
-            layout: nodeParamsLayout,
-            entries: [
-                {binding: 0, resource: {buffer: this.modelMatrix}},
-            ]
-        });
-
-        let bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
-
-        let bundleEncoder;
-        if (renderPipeline.label === "Shadow Pipeline"){
-            bundleEncoder = device.createRenderBundleEncoder({
-                colorFormats: [],
-                depthStencilFormat: depthFormat
-            });
-        }
-        else {
-            bundleEncoder = device.createRenderBundleEncoder({
-                colorFormats: [swapChainFormat],
-                depthStencilFormat: depthFormat,
-            });
-        } 
-
-        bundleEncoder.setBindGroup(0, viewParamsBindGroup);
-        bundleEncoder.setBindGroup(1, this.bindGroup);
-        bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
-
-
-    }
 }
 
 function readNodeTransform(node) {

@@ -18,9 +18,9 @@ struct Mat4Uniform {
 
 @group(0) @binding(0) var<uniform> projection: Mat4Uniform;
 @group(0) @binding(1) var<uniform> view: Mat4Uniform;
+@group(0) @binding(2) var<uniform> light_view_projection: Mat4Uniform;
 @group(1) @binding(0) var<uniform> model: Mat4Uniform;
 @group(1) @binding(1) var<uniform> inverse_transpose: Mat4Uniform;
-@group(2) @binding(0) var<uniform> shadow_transform: Mat4Uniform;
 
 //@group(4) @binding(0) var<uniform> light_projection: Mat4Uniform;
 //@group(4) @binding(1) var<uniform> light_projection: Mat4Uniform;
@@ -31,7 +31,7 @@ struct Mat4Uniform {
 fn vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1.0);
-    //vout.light_vertex_position = light_projection.m * model.m * float4(vin.position, 1.0);
+    vout.light_vertex_position = light_view_projection.m * model.m * float4(vin.position, 1.0);
 
     var light_direction = float4(normalize(float3(1, 1, 0)), 1);
     var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));

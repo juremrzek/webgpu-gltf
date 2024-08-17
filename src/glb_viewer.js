@@ -44,7 +44,7 @@ function get_shadow_matrix(n, l ,x) {
 
     let shadowDepthTexture = device.createTexture({
         size: {width: 1024, height: 1024, depthOrArrayLayers: 1},
-        format: "depth24plus-stencil8",
+        format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     })
     const shadowDepthTextureView = shadowDepthTexture.createView();
@@ -53,6 +53,7 @@ function get_shadow_matrix(n, l ,x) {
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
             {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
+            {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
         ]
     });
     const nodeParamsLayout = device.createBindGroupLayout({
@@ -91,6 +92,11 @@ function get_shadow_matrix(n, l ,x) {
         ]
     })
 
+    const lightViewProjBuffer = device.createBuffer(
+        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+    const shadowParamsBindGroup = device.createBindGroup(
+        {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: lightViewProjBuffer}}]});
+
     const projectionBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
     const viewBuffer = device.createBuffer(
@@ -98,15 +104,10 @@ function get_shadow_matrix(n, l ,x) {
     const viewParamsBindGroup = device.createBindGroup(
         {layout: viewParamsLayout, entries: [
             {binding: 0, resource: {buffer: projectionBuffer}},
-            {binding: 1, resource: {buffer:viewBuffer}}
+            {binding: 1, resource: {buffer:viewBuffer}},
+            {binding: 2, resource: {buffer:lightViewProjBuffer}},
         ]}
     );
-
-    const shadowParamsBuf = device.createBuffer(
-        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    const shadowParamsBindGroup = device.createBindGroup(
-        {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
-
 
     const primitive = {topology: 'triangle-list'};
     const shaderModule = device.createShaderModule({code: basicShaders});
@@ -151,7 +152,7 @@ function get_shadow_matrix(n, l ,x) {
         },
         primitive: primitive,
         depthStencil: {
-            format: depthTexture.format,
+            format: 'depth24plus-stencil8',
             depthWriteEnabled: true,
             depthCompare: 'less'
         }
@@ -185,8 +186,6 @@ function get_shadow_matrix(n, l ,x) {
             depthLoadOp: "clear",
             depthClearValue: 1,
             depthStoreOp: "store",
-            stencilLoadOp: 'clear', // You must specify this if there is a stencil aspect
-            stencilStoreOp: 'store',
         }
     };
 
@@ -211,7 +210,7 @@ function get_shadow_matrix(n, l ,x) {
             topology: 'triangle-list',
         },
         depthStencil: {
-            format: depthTexture.format,
+            format: 'depth32float',
             depthWriteEnabled: true,
             depthCompare: 'less'}
     }
@@ -273,7 +272,7 @@ function get_shadow_matrix(n, l ,x) {
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, light_projection_matrix);
         device.queue.writeBuffer(viewBuffer, 0, light_view_matrix);
-        device.queue.writeBuffer(shadowParamsBuf, 0, shadow_matrix);
+        device.queue.writeBuffer(lightViewProjBuffer, 0, light_view_projection_matrix);
 
         const shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
         shadowRenderPass.executeBundles(shadowRenderBundles);
