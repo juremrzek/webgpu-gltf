@@ -244,11 +244,19 @@ export class GLTFNode {
 
         let bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
 
-        // Create the render bundle encoder with the correct formats
-        let bundleEncoder = device.createRenderBundleEncoder({
-            colorFormats: [swapChainFormat],
-            depthStencilFormat: depthFormat,
-        });
+        let bundleEncoder;
+        if (renderPipeline.label === "Shadow Pipeline"){
+            bundleEncoder = device.createRenderBundleEncoder({
+                colorFormats: [],
+                depthStencilFormat: depthFormat
+            });
+        }
+        else {
+            bundleEncoder = device.createRenderBundleEncoder({
+                colorFormats: [swapChainFormat],
+                depthStencilFormat: depthFormat,
+            });
+        }  
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
         bundleEncoder.setBindGroup(1, this.bindGroup); //node bind group
@@ -291,10 +299,19 @@ export class GLTFNode {
 
         let bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
 
-        let bundleEncoder = device.createRenderBundleEncoder({
-            colorFormats: [swapChainFormat],
-            depthStencilFormat: depthFormat,
-        });
+        let bundleEncoder;
+        if (renderPipeline.label === "Shadow Pipeline"){
+            bundleEncoder = device.createRenderBundleEncoder({
+                colorFormats: [],
+                depthStencilFormat: depthFormat
+            });
+        }
+        else {
+            bundleEncoder = device.createRenderBundleEncoder({
+                colorFormats: [swapChainFormat],
+                depthStencilFormat: depthFormat,
+            });
+        } 
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
         bundleEncoder.setBindGroup(1, this.bindGroup);

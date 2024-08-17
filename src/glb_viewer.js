@@ -42,6 +42,13 @@ function get_shadow_matrix(n, l ,x) {
     });
     const depthTextureView = depthTexture.createView();
 
+    let shadowDepthTexture = device.createTexture({
+        size: {width: 1024, height: 1024, depthOrArrayLayers: 1},
+        format: "depth24plus-stencil8",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    })
+    const shadowDepthTextureView = shadowDepthTexture.createView();
+
     const viewParamsLayout = device.createBindGroupLayout({
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
@@ -150,20 +157,14 @@ function get_shadow_matrix(n, l ,x) {
         device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
     
     const shadowRenderPassDesc = {
-        colorAttachments: [{
-            view: undefined,
-            loadOp: "load",
-            clearValue: [0.3, 0.3, 0.3, 1],
-            storeOp: "store"
-        }],
+        colorAttachments: [],
         depthStencilAttachment: {
-            view: depthTextureView,
-            depthLoadOp: "load",
+            view: shadowDepthTextureView,
+            depthLoadOp: "clear",
             depthClearValue: 1,
             depthStoreOp: "store",
-            stencilLoadOp: "load",
-            stencilClearValue: 0,
-            stencilStoreOp: "store"
+            stencilLoadOp: 'clear', // You must specify this if there is a stencil aspect
+            stencilStoreOp: 'store',
         }
     };
 
@@ -183,26 +184,6 @@ function get_shadow_matrix(n, l ,x) {
             module: shadowShaderModule,
             entryPoint: 'shadow_vertex_main',
             buffers: vertexBuffers
-        },
-        fragment: {
-            module: shadowShaderModule,
-            entryPoint: 'shadow_fragment_main',
-            targets: [{
-                format: swapChainFormat,
-                blend: {
-                    color: {
-                        srcFactor: 'src-alpha',
-                        dstFactor: 'one-minus-src-alpha',
-                        operation: 'add',
-                    },
-                    alpha: {
-                        srcFactor: 'one',
-                        dstFactor: 'one-minus-src-alpha',
-                        operation: 'add',
-                    },
-                    writeMask: GPUColorWrite.ALL,
-                }
-            }],
         },
         primitive: {
             topology: 'triangle-list',
@@ -244,6 +225,18 @@ function get_shadow_matrix(n, l ,x) {
     };
     controller.registerForCanvas(canvas);
 
+    const n = [0, 1, 0, 0]
+    const l = [20, 20, 0, 1];
+    const x = [0, -0.01, 0, 0]
+    const shadow_matrix = get_shadow_matrix(n, l, x);
+
+    const fov = Math.PI / 2; // 45 degrees field of view
+    const aspect = 1.0;
+    const near = 0.1;
+    const far = 1000.0;
+    const light_view_matrix = mat4.lookAt(mat4.create(), [20, 20, 0], [0, 0, 0], [0, 1, 0]);
+    const light_projection_matrix = mat4.perspective(mat4.create(), fov, aspect, near, far);
+
     const fpsDisplay = document.getElementById("fps");
     let numFrames = 0;
     let totalTimeMS = 0;
@@ -251,27 +244,24 @@ function get_shadow_matrix(n, l ,x) {
         let start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         renderPassDesc.colorAttachments[0].view = colorTextureView
-        shadowRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
         const commandEncoder = device.createCommandEncoder();
 
-        const n = [0, 1, 0, 0]
-        const l = [100, 100, 0, 1];
-        const x = [0, -0.01, 0, 0]
-        const shadow_matrix = get_shadow_matrix(n, l, x);
-
         const view_matrix = camera.camera;
-        device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
-        device.queue.writeBuffer(viewBuffer, 0, view_matrix);
+        device.queue.writeBuffer(projectionBuffer, 0, light_projection_matrix);
+        device.queue.writeBuffer(viewBuffer, 0, light_view_matrix);
         device.queue.writeBuffer(shadowParamsBuf, 0, shadow_matrix);
-
-        const renderPass = commandEncoder.beginRenderPass(renderPassDesc);
-        renderPass.executeBundles(renderBundles);
-        renderPass.end();
 
         const shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
         shadowRenderPass.executeBundles(shadowRenderBundles);
         shadowRenderPass.end();
+
+        device.queue.writeBuffer(projectionBuffer, 0, light_projection_matrix);
+        device.queue.writeBuffer(viewBuffer, 0, light_view_matrix);
+
+        const renderPass = commandEncoder.beginRenderPass(renderPassDesc);
+        renderPass.executeBundles(renderBundles);
+        renderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();

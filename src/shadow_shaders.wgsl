@@ -13,25 +13,19 @@ struct Mat4Uniform {
     m: mat4x4<f32>
 }
 
-@group(0) @binding(0) var<uniform> projection: Mat4Uniform;
-@group(0) @binding(1) var<uniform> view: Mat4Uniform;
+@group(0) @binding(0) var<uniform> light_projection: Mat4Uniform;
+@group(0) @binding(1) var<uniform> light_view: Mat4Uniform;
 @group(1) @binding(0) var<uniform> model: Mat4Uniform;
-@group(2) @binding(0) var<uniform> shadow_transform: Mat4Uniform;
 @group(1) @binding(2) var<uniform> node_id: u32;
 
 @vertex
 fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     if (node_id == 1) {
-        vout.position = projection.m * view.m * shadow_transform.m * model.m * float4(vin.position, 1.0);
+        vout.position = light_projection.m * light_view.m * model.m * float4(vin.position, 1.0);
     }
     else {
         vout.position = float4(-2, -2, -2, 1);
     }
     return vout;
-}
-
-@fragment
-fn shadow_fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    return (vec4(0.0, 0.0, 0, 1));
 }
