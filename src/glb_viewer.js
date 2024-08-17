@@ -62,6 +62,11 @@ function get_shadow_matrix(n, l ,x) {
             {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
         ]
     });
+    const materialBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            {binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}
+        ]
+    });
     const shadowParamsLayout = device.createBindGroupLayout({
         entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
     });
@@ -101,10 +106,7 @@ function get_shadow_matrix(n, l ,x) {
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
     const shadowParamsBindGroup = device.createBindGroup(
         {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: shadowParamsBuf}}]});
-    
 
-    const layoutEntries = [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}]
-    const materialBindGroupLayout = device.createBindGroupLayout({entries: layoutEntries});
 
     const primitive = {topology: 'triangle-list'};
     const shaderModule = device.createShaderModule({code: basicShaders});
@@ -194,7 +196,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     const shadowPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
-            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout]
+            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]
     });
 
     const shadowPipelineDescriptor = {
