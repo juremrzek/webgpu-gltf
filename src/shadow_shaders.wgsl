@@ -13,14 +13,15 @@ struct Mat4Uniform {
     m: mat4x4<f32>
 }
 
-@group(0) @binding(0) var<uniform> light_projection: Mat4Uniform;
-@group(0) @binding(1) var<uniform> light_view: Mat4Uniform;
+@group(0) @binding(0) var<uniform> projection: Mat4Uniform;
+@group(0) @binding(1) var<uniform> view: Mat4Uniform;
+@group(0) @binding(2) var<uniform> light_view_projection: Mat4Uniform;
 @group(1) @binding(0) var<uniform> model: Mat4Uniform;
 @group(1) @binding(2) var<uniform> node_id: u32;
 
 @vertex
 fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    vout.position = light_projection.m * light_view.m * model.m * float4(vin.position, 1.0);
+    vout.position = light_view_projection.m * model.m * float4(vin.position, 1.0);
     return vout;
 }

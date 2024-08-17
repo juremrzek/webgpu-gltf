@@ -68,11 +68,8 @@ function get_shadow_matrix(n, l ,x) {
             {binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}}
         ]
     });
-    const shadowParamsLayout = device.createBindGroupLayout({
-        entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
-    });
 
-    const shadowMapLayout = device.createBindGroupLayout({
+    const mapRenderLayout = device.createBindGroupLayout({
         entries: [
             {
                 binding: 0, 
@@ -90,12 +87,32 @@ function get_shadow_matrix(n, l ,x) {
                 sampler: { type: 'comparison' },
             }
         ]
-    })
+    });
 
     const lightViewProjBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    const shadowParamsBindGroup = device.createBindGroup(
-        {layout: shadowParamsLayout, entries: [{binding: 0, resource: {buffer: lightViewProjBuffer}}]});
+    const mapBindGroup = device.createBindGroup({
+        layout: mapRenderLayout, 
+        entries: [
+            {
+                binding: 0,
+                resource: {
+                buffer: lightViewProjBuffer,
+                },
+            },
+            {
+                binding: 1,
+                resource: shadowDepthTextureView,
+            },
+            {
+                binding: 2,
+                resource: device.createSampler({
+                compare: 'less',
+                }),
+            },
+            ],
+        }
+    );
 
     const projectionBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
@@ -121,7 +138,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     const pipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
-            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]
+            [viewParamsLayout, nodeParamsLayout, mapRenderLayout, materialBindGroupLayout]
     });
     const pipelineDescriptor = {
         label: 'Basic Pipeline',
@@ -177,7 +194,7 @@ function get_shadow_matrix(n, l ,x) {
     };
 
     const renderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat);
+        device, viewParamsLayout, viewParamsBindGroup, mapRenderLayout, mapBindGroup, renderPipeline, swapChainFormat);
     
     const shadowRenderPassDesc = {
         colorAttachments: [],
@@ -195,7 +212,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     const shadowPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
-            [viewParamsLayout, nodeParamsLayout, shadowParamsLayout, materialBindGroupLayout]
+            [viewParamsLayout, nodeParamsLayout, materialBindGroupLayout]
     });
 
     const shadowPipelineDescriptor = {
@@ -218,7 +235,7 @@ function get_shadow_matrix(n, l ,x) {
     const shadowRenderPipeline = device.createRenderPipeline(shadowPipelineDescriptor);
 
     const shadowRenderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, shadowRenderPipeline, swapChainFormat);
+        device, viewParamsLayout, viewParamsBindGroup, mapRenderLayout, mapBindGroup, shadowRenderPipeline, swapChainFormat);
 
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);

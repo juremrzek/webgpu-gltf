@@ -148,7 +148,10 @@ export class GLTFPrimitive {
     buildRenderBundle(bundleEncoder, renderPipeline) {
         console.log(renderPipeline)
 
-        bundleEncoder.setBindGroup(3, this.material.bindGroup);
+        if (renderPipeline.label == "Shadow Pipeline")
+            bundleEncoder.setBindGroup(2, this.material.bindGroup);
+        else
+            bundleEncoder.setBindGroup(3, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
         bundleEncoder.setVertexBuffer(0,
             this.positions.view.gpuBuffer,
@@ -222,8 +225,7 @@ export class GLTFNode {
         shadowParamsLayout,
         shadowParamsBindGroup,
         renderPipeline,
-        swapChainFormat,
-        depthFormat) {
+        swapChainFormat) {
         let nodeParamsLayout = device.createBindGroupLayout({
             entries: [
                 {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
@@ -241,8 +243,6 @@ export class GLTFNode {
             ]
         });
 
-        let bindGroupLayouts = [viewParamsLayout, nodeParamsLayout, shadowParamsLayout];
-
         let bundleEncoder;
         if (renderPipeline.label === "Shadow Pipeline"){
             bundleEncoder = device.createRenderBundleEncoder({
@@ -253,13 +253,14 @@ export class GLTFNode {
         else {
             bundleEncoder = device.createRenderBundleEncoder({
                 colorFormats: [swapChainFormat],
-                depthStencilFormat: depthFormat,
+                depthStencilFormat: 'depth24plus-stencil8',
             });
+            bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
         }  
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
         bundleEncoder.setBindGroup(1, this.bindGroup); //node bind group
-        bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
+
 
         for (let i = 0; i < this.mesh.primitives.length; ++i) {
             this.mesh.primitives[i].buildRenderBundle(bundleEncoder, renderPipeline);
@@ -390,8 +391,7 @@ export class GLBModel {
                 shadowParamsLayout,
                 shadowParamsBindGroup,
                 renderPipeline,
-                swapChainFormat,
-                'depth24plus-stencil8');
+                swapChainFormat);
             renderBundles.push(bundle);
         }
         return renderBundles;
