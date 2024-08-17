@@ -107,7 +107,7 @@ function get_shadow_matrix(n, l ,x) {
             {
                 binding: 2,
                 resource: device.createSampler({
-                compare: 'less',
+                    compare: 'less',
                 }),
             },
             ],
@@ -264,7 +264,7 @@ function get_shadow_matrix(n, l ,x) {
     controller.registerForCanvas(canvas);
 
     const n = [0, 1, 0, 0]
-    const l = [20, 20, 0, 1];
+    const l = [10, 10, 0, 1];
     const x = [0, -0.01, 0, 0]
     const shadow_matrix = get_shadow_matrix(n, l, x);
 
@@ -272,7 +272,7 @@ function get_shadow_matrix(n, l ,x) {
     const aspect = 1.0;
     const near = 0.1;
     const far = 1000.0;
-    const light_view_matrix = mat4.lookAt(mat4.create(), [20, 20, 0], [0, 0, 0], [0, 1, 0]);
+    const light_view_matrix = mat4.lookAt(mat4.create(), [10, 10, 0], [0, 0, 0], [0, 1, 0]);
     const light_projection_matrix = mat4.perspective(mat4.create(), fov, aspect, near, far);
     const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
 

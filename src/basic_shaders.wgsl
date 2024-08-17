@@ -28,7 +28,7 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1.0);
     var shadowPos = light_view_projection.m * model.m * float4(vin.position, 1.0);
-    shadowPos = vec4(shadowPos.xy * vec2(0.5, -0.5) + vec2(0.5), shadowPos.z, 1);
+    shadowPos = float4(shadowPos.xy * float2(0.5, -0.5) + float2(0.5), shadowPos.z, 1);
     vout.light_vertex_position = shadowPos;
 
     var light_direction = float4(normalize(float3(1, 1, 0)), 1);
@@ -45,14 +45,17 @@ struct MaterialParams {
 };
 
 @group(2) @binding(0) var<uniform> light_view_projection2: Mat4Uniform;
-@group(2) @binding(1) var depth: texture_depth_2d;
-@group(2) @binding(2) var sampler: sampler_comparison;
+@group(2) @binding(1) var shadow_map: texture_depth_2d;
+@group(2) @binding(2) var shadow_sampler: sampler_comparison;
 @group(3) @binding(0) var<uniform> material: MaterialParams;
 
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    
-
-    var color = material.base_color_factor.xyz;
-    return float4((color * 0.3) + (color * fin.brightness * 0.7), 1);
+    var visibility = textureSampleCompare(
+        shadow_map, shadow_sampler,
+        fin.light_vertex_position.xy, fin.light_vertex_position.z - 0.007
+    );
+    return vec4(visibility * material.base_color_factor.xyz, 1);
+    return vec4(visibility, visibility, visibility, 1);
+    //return material.base_color_factor;
 }
