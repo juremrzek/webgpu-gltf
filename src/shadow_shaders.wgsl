@@ -21,11 +21,6 @@ struct Mat4Uniform {
 @vertex
 fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    if (node_id == 1) {
-        vout.position = light_projection.m * light_view.m * model.m * float4(vin.position, 1.0);
-    }
-    else {
-        vout.position = float4(-2, -2, -2, 1);
-    }
+    vout.position = light_projection.m * light_view.m * model.m * float4(vin.position, 1.0);
     return vout;
 }

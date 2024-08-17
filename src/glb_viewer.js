@@ -66,6 +66,26 @@ function get_shadow_matrix(n, l ,x) {
         entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}}]
     });
 
+    const shadowMapLayout = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0, 
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: { type: 'uniform' }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                texture: { sampleType: 'depth'},
+            },
+            {
+                binding: 2,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                sampler: { type: 'comparison' },
+            }
+        ]
+    })
+
     const projectionBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
     const viewBuffer = device.createBuffer(
@@ -236,6 +256,7 @@ function get_shadow_matrix(n, l ,x) {
     const far = 1000.0;
     const light_view_matrix = mat4.lookAt(mat4.create(), [20, 20, 0], [0, 0, 0], [0, 1, 0]);
     const light_projection_matrix = mat4.perspective(mat4.create(), fov, aspect, near, far);
+    const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
 
     const fpsDisplay = document.getElementById("fps");
     let numFrames = 0;
@@ -256,8 +277,8 @@ function get_shadow_matrix(n, l ,x) {
         shadowRenderPass.executeBundles(shadowRenderBundles);
         shadowRenderPass.end();
 
-        device.queue.writeBuffer(projectionBuffer, 0, light_projection_matrix);
-        device.queue.writeBuffer(viewBuffer, 0, light_view_matrix);
+        device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
+        device.queue.writeBuffer(viewBuffer, 0, view_matrix);
 
         const renderPass = commandEncoder.beginRenderPass(renderPassDesc);
         renderPass.executeBundles(renderBundles);

@@ -5,12 +5,12 @@ alias float = f32;
 
 struct VertexInput {
     @location(0) position: float3,
-    @location(1) normal: float3
+    @location(1) normal: float3,
 }
 struct VertexOutput {
     @builtin(position) position: float4,
-    @location(1) normal: float3,
-    @location(2) brightness: float
+    @location(1) brightness: float,
+    @location(2) light_vertex_position: float4
 }
 struct Mat4Uniform {
      m: mat4x4<f32>
@@ -22,10 +22,16 @@ struct Mat4Uniform {
 @group(1) @binding(1) var<uniform> inverse_transpose: Mat4Uniform;
 @group(2) @binding(0) var<uniform> shadow_transform: Mat4Uniform;
 
+//@group(4) @binding(0) var<uniform> light_projection: Mat4Uniform;
+//@group(4) @binding(1) var<uniform> light_projection: Mat4Uniform;
+//@group(4) @binding(2) var<uniform> light_projection: Mat4Uniform;
+
+
 @vertex
 fn vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1.0);
+    //vout.light_vertex_position = light_projection.m * model.m * float4(vin.position, 1.0);
 
     var light_direction = float4(normalize(float3(1, 1, 0)), 1);
     var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
