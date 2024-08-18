@@ -61,7 +61,7 @@ fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
 
             visibility += textureSampleCompare(
                 shadow_map, shadow_sampler,
-                fin.light_vertex_position.xy + offset , fin.light_vertex_position.z - 0.0003
+                fin.light_vertex_position.xy + offset , fin.light_vertex_position.z - 0.0004
             );
         }
     }
