@@ -26,7 +26,7 @@ function get_shadow_matrix(n, l ,x) {
     const device = await adapter.requestDevice();
     let glbModel;
     const glbFile = await fetch(
-            "http://localhost:8000/scene_floor_cube_on_ground.glb")
+            "http://localhost:8000/scene_cube_no_walls.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
 
     const canvas = document.getElementById("webgpu-canvas");
@@ -43,7 +43,7 @@ function get_shadow_matrix(n, l ,x) {
     const depthTextureView = depthTexture.createView();
 
     let shadowDepthTexture = device.createTexture({
-        size: {width: 1024, height: 1024, depthOrArrayLayers: 1},
+        size: {width: 2048 * 2, height: 2048 * 2, depthOrArrayLayers: 1},
         format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     })
@@ -126,7 +126,10 @@ function get_shadow_matrix(n, l ,x) {
         ]}
     );
 
-    const primitive = {topology: 'triangle-list'};
+    const primitive = {
+        topology: 'triangle-list',
+    };
+      
     const shaderModule = device.createShaderModule({code: basicShaders});
     const vertexBuffers = [{
         arrayStride: 12, 
@@ -261,25 +264,40 @@ function get_shadow_matrix(n, l ,x) {
     controller.twoFingerDrag = function (drag) {
         camera.pan(drag);
     };
+    camera.pan([-250, -70]);
+    camera.rotate([0, 0], [-200, 0]);
     controller.registerForCanvas(canvas);
 
     const n = [0, 1, 0, 0]
-    const l = [10, 10, 0, 1];
-    const x = [0, -0.01, 0, 0]
+    const l = [10, 10, 0];
+    const x = [0, -0.01, 0]
     const shadow_matrix = get_shadow_matrix(n, l, x);
 
-    const fov = Math.PI / 2; // 45 degrees field of view
+    const fov = (2 * Math.PI) / 5;
     const aspect = 1.0;
-    const near = 0.1;
-    const far = 1000.0;
-    const light_view_matrix = mat4.lookAt(mat4.create(), [10, 10, 0], [0, 0, 0], [0, 1, 0]);
-    const light_projection_matrix = mat4.perspective(mat4.create(), fov, aspect, near, far);
-    const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
+    //const near = -200;
+    //const far = 30;
+    
 
     const fpsDisplay = document.getElementById("fps");
     let numFrames = 0;
     let totalTimeMS = 0;
+    let t = -100;
     const render = async () => {
+        //t += 0.1;
+        const light_projection_matrix = mat4.create();
+        const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(50, 100, t), [0, 0, 0], [0, 1, 0]);
+        //ORTHO
+        const left = -40;
+        const right = 40;
+        const bottom = -40;
+        const top = 40;
+        const near = -500;
+        const far = 200;
+        mat4.ortho(light_projection_matrix, left, right, bottom, top, near, far);
+        const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
+
+
         let start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         renderPassDesc.colorAttachments[0].view = colorTextureView
@@ -287,16 +305,13 @@ function get_shadow_matrix(n, l ,x) {
         const commandEncoder = device.createCommandEncoder();
 
         const view_matrix = camera.camera;
-        device.queue.writeBuffer(projectionBuffer, 0, light_projection_matrix);
-        device.queue.writeBuffer(viewBuffer, 0, light_view_matrix);
+        device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
+        device.queue.writeBuffer(viewBuffer, 0, view_matrix);
         device.queue.writeBuffer(lightViewProjBuffer, 0, light_view_projection_matrix);
 
         const shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
         shadowRenderPass.executeBundles(shadowRenderBundles);
         shadowRenderPass.end();
-
-        device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
-        device.queue.writeBuffer(viewBuffer, 0, view_matrix);
 
         const renderPass = commandEncoder.beginRenderPass(renderPassDesc);
         renderPass.executeBundles(renderBundles);
