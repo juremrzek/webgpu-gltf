@@ -43,7 +43,7 @@ function get_shadow_matrix(n, l ,x) {
     const depthTextureView = depthTexture.createView();
 
     let shadowDepthTexture = device.createTexture({
-        size: {width: 4096, height: 4096, depthOrArrayLayers: 1},
+        size: {width: 2048, height: 2048, depthOrArrayLayers: 1},
         format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     })
