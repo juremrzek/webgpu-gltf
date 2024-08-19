@@ -32,6 +32,6 @@ fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn shadow_fragment_main(fin: VertexOutput) -> @location(0) float4 {
+fn shadow_fragment_main(fin: VertexOutput) -> @location(0) vec4 {
     return (vec4(0.0, 0.0, 0, 1));
 }

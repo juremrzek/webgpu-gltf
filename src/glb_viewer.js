@@ -131,9 +131,9 @@ function get_shadow_matrix(n, l ,x) {
 
     const renderPassDesc = {
         colorAttachments: [{
-            view: undefined,
             loadOp: "clear",
-            clearValue: [0.3, 0.3, 0.3, 1], storeOp: "store"
+            clearValue: [0.3, 0.3, 0.3, 1],
+            storeOp: "store"
         }],
         depthStencilAttachment: {
             view: depthTextureView,
@@ -151,18 +151,14 @@ function get_shadow_matrix(n, l ,x) {
     
     const shadowRenderPassDesc = {
         colorAttachments: [{
-            view: undefined,
             loadOp: "load",
-            clearValue: [0.3, 0.3, 0.3, 1],
             storeOp: "store"
         }],
         depthStencilAttachment: {
             view: depthTextureView,
             depthLoadOp: "load",
-            depthClearValue: 1,
             depthStoreOp: "store",
             stencilLoadOp: "load",
-            stencilClearValue: 0,
             stencilStoreOp: "store"
         }
     };
