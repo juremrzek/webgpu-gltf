@@ -42,7 +42,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     const depthTextureView = depthTexture.createView();
 
-    let shadowDepthTexture = device.createTexture({
+    const shadowDepthTexture = device.createTexture({
         size: {width: 4096, height: 4096, depthOrArrayLayers: 1},
         format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
@@ -170,11 +170,26 @@ function get_shadow_matrix(n, l ,x) {
                 }
             }]
         },
-        primitive: primitive,
+        primitive: {
+            cullMode: 'none'
+        },
         depthStencil: {
-            format: 'depth24plus-stencil8',
-            depthWriteEnabled: true,
-            depthCompare: 'less'
+            depthWriteEnabled: false,
+            depthCompare: 'less',
+            stencilFront: {
+                compare: 'always', // Stencil test always passes
+                failOp: 'keep',
+                depthFailOp: 'decrement-wrap',
+                passOp: 'keep',
+            },
+            stencilBack: {
+                compare: 'always', // Stencil test always passes
+                failOp: 'keep',
+                depthFailOp: 'increment-wrap',
+                passOp: 'keep',
+            },
+            stencilReadMask: 0xff,
+            stencilWriteMask: 0xff,
         }
     };
     const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
@@ -190,9 +205,6 @@ function get_shadow_matrix(n, l ,x) {
             depthLoadOp: "clear",
             depthClearValue: 1,
             depthStoreOp: "store",
-            stencilLoadOp: "clear",
-            stencilClearValue: 0,
-            stencilStoreOp: "store"
         }
     };
 
@@ -203,9 +215,10 @@ function get_shadow_matrix(n, l ,x) {
         colorAttachments: [],
         depthStencilAttachment: {
             view: shadowDepthTextureView,
-            depthLoadOp: "clear",
-            depthClearValue: 1,
-            depthStoreOp: "store",
+            depthLoadOp: 'load',
+            depthStoreOp: 'store',
+            stencilLoadOp: 'load',
+            stencilStoreOp: 'store',
         }
     };
 
