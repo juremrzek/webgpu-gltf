@@ -151,7 +151,7 @@ export class GLTFPrimitive {
         if (renderPipeline.label == "Shadow Pipeline")
             bundleEncoder.setBindGroup(2, this.material.bindGroup);
         else
-            bundleEncoder.setBindGroup(3, this.material.bindGroup);
+            bundleEncoder.setBindGroup(2, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
         bundleEncoder.setVertexBuffer(0,
             this.positions.view.gpuBuffer,
@@ -244,18 +244,18 @@ export class GLTFNode {
         });
 
         let bundleEncoder;
-        if (renderPipeline.label === "Shadow Pipeline"){
-            bundleEncoder = device.createRenderBundleEncoder({
-                colorFormats: [],
-                depthStencilFormat: 'depth32float'
-            });
-        }
-        else {
+        if (renderPipeline.label == "First Pipeline"){
             bundleEncoder = device.createRenderBundleEncoder({
                 colorFormats: [swapChainFormat],
                 depthStencilFormat: 'depth24plus-stencil8',
             });
-            bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
+        }
+        else if (renderPipeline.label == "Second Pipeline") {
+            bundleEncoder = device.createRenderBundleEncoder({
+                colorFormats: [],
+                depthStencilFormat: 'depth24plus-stencil8',
+            });
+            //bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
         }  
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);

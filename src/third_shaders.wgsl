@@ -20,7 +20,7 @@ struct Mat4Uniform {
 @group(1) @binding(2) var<uniform> node_id: u32;
 
 @vertex
-fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
+fn third_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = light_view_projection.m * model.m * float4(vin.position, 1.0);
     return vout;

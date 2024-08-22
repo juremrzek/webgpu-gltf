@@ -3,8 +3,9 @@ import {Controller} from "ez_canvas_controller";
 import {mat4, vec3} from "gl-matrix";
 
 import {uploadGLBModel} from "./glb_import.js";
-import basicShaders from './basic_shaders.wgsl';
-import shadowShaders from './shadow_shaders.wgsl';
+import firstShaders from './first_shaders.wgsl';
+import secondShaders from './second_shaders.wgsl';
+import thirdShaders from './third_shaders.wgsl';
 
 function get_shadow_matrix(n, l ,x) {
     const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
@@ -35,19 +36,19 @@ function get_shadow_matrix(n, l ,x) {
     context.configure(
         {device: device, format: swapChainFormat, usage: GPUTextureUsage.RENDER_ATTACHMENT});
 
-    const depthTexture = device.createTexture({
+    const firstDepthTexture = device.createTexture({
         size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
         format: "depth24plus-stencil8",
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
-    const depthTextureView = depthTexture.createView();
+    const firstDepthTextureView = firstDepthTexture.createView();
 
-    const shadowDepthTexture = device.createTexture({
-        size: {width: 4096, height: 4096, depthOrArrayLayers: 1},
-        format: "depth32float",
-        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
-    })
-    const shadowDepthTextureView = shadowDepthTexture.createView();
+    const secondDepthTexture = device.createTexture({
+        size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
+        format: "depth24plus-stencil8",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT
+    });
+    const secondDepthTextureView = secondDepthTexture.createView();
 
     const viewParamsLayout = device.createBindGroupLayout({
         entries: [
@@ -69,7 +70,7 @@ function get_shadow_matrix(n, l ,x) {
         ]
     });
 
-    const mapRenderLayout = device.createBindGroupLayout({
+    /*const mapRenderLayout = device.createBindGroupLayout({
         entries: [
             {
                 binding: 0, 
@@ -87,11 +88,11 @@ function get_shadow_matrix(n, l ,x) {
                 sampler: { type: 'comparison' },
             }
         ]
-    });
+    });*/
 
     const lightViewProjBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    const mapBindGroup = device.createBindGroup({
+    /*const mapBindGroup = device.createBindGroup({
         layout: mapRenderLayout, 
         entries: [
             {
@@ -102,7 +103,7 @@ function get_shadow_matrix(n, l ,x) {
             },
             {
                 binding: 1,
-                resource: shadowDepthTextureView,
+                resource: firstDepthTextureView,
             },
             {
                 binding: 2,
@@ -112,7 +113,7 @@ function get_shadow_matrix(n, l ,x) {
             },
             ],
         }
-    );
+    );*/
 
     const projectionBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
@@ -129,8 +130,7 @@ function get_shadow_matrix(n, l ,x) {
     const primitive = {
         topology: 'triangle-list',
     };
-      
-    const shaderModule = device.createShaderModule({code: basicShaders});
+
     const vertexBuffers = [{
         arrayStride: 12, 
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
@@ -139,120 +139,185 @@ function get_shadow_matrix(n, l ,x) {
         arrayStride: 12,
         attributes: [{format: 'float32x3', offset: 0, shaderLocation: 1}]
     });
-    const pipelineLayout = device.createPipelineLayout({
+
+    const firstShaderModule = device.createShaderModule({code: firstShaders});
+    const secondShaderModule = device.createShaderModule({code: secondShaders});
+    const thirdShaderModule = device.createShaderModule({code: thirdShaders});
+
+    const firstRenderPassDesc = {
+        colorAttachments: [{
+            view: undefined,
+            loadOp: "clear",
+            clearValue: [0.3, 0.3, 0.3, 1],
+            storeOp: "store"
+        }],
+        depthStencilAttachment: {
+            view: firstDepthTextureView,
+            depthLoadOp: 'clear',
+            depthClearValue: 1,
+            depthStoreOp: 'store',
+            stencilLoadOp: 'clear',
+            stencilLoadValue: 0,
+            stencilStoreOp: 'discard',
+        }
+    };
+     
+    const firstPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
-            [viewParamsLayout, nodeParamsLayout, mapRenderLayout, materialBindGroupLayout]
+            [viewParamsLayout, nodeParamsLayout, materialBindGroupLayout]
     });
-    const pipelineDescriptor = {
-        label: 'Basic Pipeline',
-        layout: pipelineLayout,
+
+    const firstPipelineDescriptor = {
+        label: "First Pipeline",
+        layout: firstPipelineLayout,
         vertex: {
-            module: shaderModule,
-            entryPoint: 'vertex_main',
+            module: firstShaderModule,
+            entryPoint: 'first_vertex_main',
             buffers: vertexBuffers
         },
         fragment: {
-            module: shaderModule,
-            entryPoint: 'fragment_main',
-            targets: [{
+            module: firstShaderModule,
+            entryPoint: 'first_fragment_main',
+            targets:[{
                 format: swapChainFormat,
                 blend: {
                     color: {
                         srcFactor: 'src-alpha',
                         dstFactor: 'one-minus-src-alpha',
-                        operation: 'add',
+                        operation: 'add'
                     },
                     alpha: {
                         srcFactor: 'one',
                         dstFactor: 'one-minus-src-alpha',
-                        operation: 'add',
-                    },
-                }
-            }]
+                        operation: 'add'
+                    }
+                },
+            }],
+            writeMask: GPUColorWrite.ALL
         },
         primitive: {
-            cullMode: 'none'
+            topology: 'triangle-list',
+            cullMode: 'back'
         },
         depthStencil: {
-            depthWriteEnabled: false,
-            depthCompare: 'less',
+            format: 'depth24plus-stencil8',
+            depthWriteEnabled: true,
+            depthCompare: 'less-equal'
+        },
+    };
+
+    const firstRenderPipeline = device.createRenderPipeline(firstPipelineDescriptor);
+
+    const firstRenderBundles = glbFile.buildRenderBundles(
+        device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
+
+    const secondPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [viewParamsLayout, nodeParamsLayout, materialBindGroupLayout]
+    });
+    const secondPipelineDescriptor = {
+        label: 'Second Pipeline',
+        layout: secondPipelineLayout,
+        vertex: {
+            module: secondShaderModule,
+            entryPoint: 'second_vertex_main',
+            buffers: vertexBuffers
+        },
+        primitive: {
+            cullMode: 'none',
+        },
+        depthStencil: {
+            depthWriteEnabled: false, // Don't write to depth buffer
+            depthCompare: 'less', // But do use depth test
+            format: 'depth24plus-stencil8',
             stencilFront: {
-                compare: 'always', // Stencil test always passes
+                compare: 'always',
                 failOp: 'keep',
                 depthFailOp: 'decrement-wrap',
                 passOp: 'keep',
             },
             stencilBack: {
-                compare: 'always', // Stencil test always passes
+                compare: 'always',
                 failOp: 'keep',
                 depthFailOp: 'increment-wrap',
                 passOp: 'keep',
             },
             stencilReadMask: 0xff,
-            stencilWriteMask: 0xff,
-        }
+            stencilWriteMask: 0x00, // Do no writing to stencil buffer in this pass
+        },
     };
-    const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+    const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
-    const renderPassDesc = {
-        colorAttachments: [{
-            view: undefined,
-            loadOp: "clear",
-            clearValue: [0.3, 0.3, 0.3, 1], storeOp: "store"
-        }],
-        depthStencilAttachment: {
-            view: depthTextureView,
-            depthLoadOp: "clear",
-            depthClearValue: 1,
-            depthStoreOp: "store",
-        }
-    };
-
-    const renderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, mapRenderLayout, mapBindGroup, renderPipeline, swapChainFormat);
-    
-    const shadowRenderPassDesc = {
+    const secondRenderPassDesc = {
         colorAttachments: [],
         depthStencilAttachment: {
-            view: shadowDepthTextureView,
+            view: secondDepthTextureView,
+            depthLoadOp: "load",
+            depthLoadValue: 1.0,
+            depthStoreOp: "store",
+            stencilLoadOp: "load",
+            stencilLoadValue: 0,
+            stencilStoreOp: 'store',
+        }
+    };
+    
+    const secondRenderBundles = glbFile.buildRenderBundles(
+            device, viewParamsLayout, viewParamsBindGroup, null, null, secondRenderPipeline, swapChainFormat);
+        
+    /*const thirdRenderPassDesc = {
+        colorAttachments: [{
+            view: colorTextureView,
+            loadOp: 'load',
+            storeOp: 'store',
+        }],
+        depthStencilAttachment: {
+            view: depthStencilTextureView,
             depthLoadOp: 'load',
             depthStoreOp: 'store',
             stencilLoadOp: 'load',
             stencilStoreOp: 'store',
-        }
-    };
+        },
+    }
 
-     
-    const shadowShaderModule = device.createShaderModule({
-        code: shadowShaders,
-    });
-    const shadowPipelineLayout = device.createPipelineLayout({
+    const thirdPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts:
             [viewParamsLayout, nodeParamsLayout, materialBindGroupLayout]
     });
 
-    const shadowPipelineDescriptor = {
-        label: 'Shadow Pipeline',
-        layout: shadowPipelineLayout,
+    const thirdPipelineDescriptor = {
         vertex: {
-            module: shadowShaderModule,
-            entryPoint: 'shadow_vertex_main',
-            buffers: vertexBuffers
+            module: thirdShaderModule,
+            entryPoint: 'third_vertex_main',
+        },
+        fragment: {
+            module: thirdShaderModule,
+            entryPoint: 'third_fragment_main',
+            targets: [{
+                format: 'bgra8unorm', // Assume the format of the color attachment
+                writeMask: GPUColorWrite.ALL, // Enable writing to the color buffer
+            }],
         },
         primitive: {
-            topology: 'triangle-list',
+            cullMode: 'back', // Enable back-face culling
         },
         depthStencil: {
-            format: 'depth32float',
-            depthWriteEnabled: true,
-            depthCompare: 'less'}
-    }
-
-    const shadowRenderPipeline = device.createRenderPipeline(shadowPipelineDescriptor);
-
-    const shadowRenderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, mapRenderLayout, mapBindGroup, shadowRenderPipeline, swapChainFormat);
-
+            depthWriteEnabled: false, // Don't write to depth buffer
+            depthCompare: 'less-equal', // Use depth test
+            stencilFront: {
+                compare: 'not-equal', // Stencil test: fragment is in shadow if stencil value is not zero
+                failOp: 'keep',
+                depthFailOp: 'keep',
+                passOp: 'keep',
+            },
+            stencilBack: {
+                compare: 'not-equal', // Stencil test: fragment is in shadow if stencil value is not zero
+                failOp: 'keep',
+                depthFailOp: 'keep',
+                passOp: 'keep',
+            },
+            stencilReadMask: 0xff,
+            stencilWriteMask: 0x00, // Do no writing to stencil buffer in this pass
+        },
+    }*/
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
@@ -301,19 +366,46 @@ function get_shadow_matrix(n, l ,x) {
         const light_projection_matrix = mat4.create();
         const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(50, 100, t), [0, 0, 0], [0, 1, 0]);
         //ORTHO
-        const left = -40;
+        /*const left = -40;
         const right = 40;
         const bottom = -40;
         const top = 40;
         const near = -500;
         const far = 200;
-        mat4.ortho(light_projection_matrix, left, right, bottom, top, near, far);
+        mat4.ortho(light_projection_matrix, left, right, bottom, top, near, far);*/
+        var fovy = Math.PI / 2
+        var aspect = canvas.width / canvas.height;
+        var near = 0.01
+        var f = 1.0 / Math.tan(fovy / 2)
+        var out = []
+        var eps = 1.0
+        mat4.perspective(projection_matrix, fovy, aspect, near, null);
+        /*projection_matrix[0] = f / aspect
+        projection_matrix[1] = 0
+        projection_matrix[2] = 0
+        projection_matrix[3] = 0
+        projection_matrix[4] = 0
+        projection_matrix[5] = f
+        projection_matrix[6] = 0
+        projection_matrix[7] = 0
+        projection_matrix[8] = 0
+        projection_matrix[9] = 0
+        projection_matrix[10] = -1 + eps
+        projection_matrix[11] = -1
+        projection_matrix[12] = 0
+        projection_matrix[13] = 0
+        projection_matrix[14] = (eps - 2) * near
+        projection_matrix[15] = 0*/
+
+
         const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
+
+        
 
 
         let start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
-        renderPassDesc.colorAttachments[0].view = colorTextureView
+        firstRenderPassDesc.colorAttachments[0].view = colorTextureView
 
         const commandEncoder = device.createCommandEncoder();
 
@@ -322,13 +414,13 @@ function get_shadow_matrix(n, l ,x) {
         device.queue.writeBuffer(viewBuffer, 0, view_matrix);
         device.queue.writeBuffer(lightViewProjBuffer, 0, light_view_projection_matrix);
 
-        const shadowRenderPass = commandEncoder.beginRenderPass(shadowRenderPassDesc);
-        shadowRenderPass.executeBundles(shadowRenderBundles);
-        shadowRenderPass.end();
+        const firstRenderPass = commandEncoder.beginRenderPass(firstRenderPassDesc);
+        firstRenderPass.executeBundles(firstRenderBundles);
+        firstRenderPass.end();
 
-        const renderPass = commandEncoder.beginRenderPass(renderPassDesc);
-        renderPass.executeBundles(renderBundles);
-        renderPass.end();
+        const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
+        secondRenderPass.executeBundles(secondRenderBundles);
+        secondRenderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();
