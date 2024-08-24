@@ -4,6 +4,7 @@ import {mat4, vec3} from "gl-matrix";
 
 import {uploadGLBModel} from "./glb_import.js";
 import firstShaders from './first_shaders.wgsl';
+import computeShaders from './compute_volumes.wgsl';
 import secondShaders from './second_shaders.wgsl';
 import thirdShaders from './third_shaders.wgsl';
 
@@ -25,12 +26,11 @@ function get_shadow_matrix(n, l ,x) {
 
     if (!adapter) return;
     const device = await adapter.requestDevice();
-    let glbModel;
     const glbFile = await fetch(
             "assets/scene_cube_no_walls.glb")
-            .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
+            .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
-    console.log(glbModel);
+    console.log(glbFile);
     const canvas = document.getElementById("webgpu-canvas");
     const context = canvas.getContext("webgpu");
     const swapChainFormat = "bgra8unorm";
@@ -142,6 +142,7 @@ function get_shadow_matrix(n, l ,x) {
     });
 
     const firstShaderModule = device.createShaderModule({code: firstShaders});
+    const computeShadersModule = device.createShaderModule({code: computeShaders});
     const secondShaderModule = device.createShaderModule({code: secondShaders});
     const thirdShaderModule = device.createShaderModule({code: thirdShaders});
 
@@ -211,6 +212,17 @@ function get_shadow_matrix(n, l ,x) {
 
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
+
+    const computePipeline = device.createComputePipeline({
+        layout: "auto",
+        compute: {
+            module: computeShadersModule,
+            entryPoint: "main"
+        }
+        });
+
+
+
 
     const secondPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: []

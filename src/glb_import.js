@@ -155,10 +155,6 @@ export class GLTFPrimitive {
 
     // Build the primitive render commands into the bundle
     buildRenderBundle(bundleEncoder, renderPipeline) {
-        console.log("im gona cry")
-        console.log(this.indices.view);
-        console.log(this.positions.view);
-        console.log(this.normals.view);
         bundleEncoder.setBindGroup(2, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
         bundleEncoder.setVertexBuffer(0,
@@ -466,20 +462,20 @@ export class GLBModel {
     getTriangle() {
         // Define vertices for a triangle (x, y, z)
         const vertices = new Float32Array([
-            0.0,  1.0, 0.0,  // Vertex 1
-           -1.0, -1.0, 0.0,  // Vertex 2
-            1.0, -1.0, 0.0   // Vertex 3
+            0.0,  1.0, 0.0,
+           -1.0, -1.0, 0.0,
+            1.0, -1.0, 0.0 
         ]);
 
         const normals = new Float32Array([
-            0.0,  0.0, 1.0,  // Normal for Vertex 1
-            0.0,  0.0, 1.0,  // Normal for Vertex 2
-            0.0,  0.0, 1.0   // Normal for Vertex 3
+            0.0,  0.0, 1.0,
+            0.0,  0.0, 1.0,
+            0.0,  0.0, 1.0  
         ]);    
     
         // Define indices for the triangle
         const indices = new Uint16Array([
-            0, 1, 2  // Triangle
+            0, 0, 0  // 1, 2, 3
         ]);
     
         // Ensure indices are padded to a multiple of 4 bytes

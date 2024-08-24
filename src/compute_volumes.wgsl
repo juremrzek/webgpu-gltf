@@ -2,24 +2,26 @@
 // Equivalent to the OpenGL Geometry Shader.
 
 struct Vertex {
-    pos: vec4<f32>;
-    normal: vec3<f32>;
+    pos: vec4<f32>,
+    normal: vec3<f32>,
 };
 
 struct Triangle {
-    v0: Vertex;
-    v1: Vertex;
-    v2: Vertex;
+    v0: Vertex,
+    v1: Vertex,
+    v2: Vertex
 };
+
+@group(0) @binding(0) var<uniform> l_pos: vec4<f32>; // Light position in eye space
 
 @group(0) @binding(3) var<storage, read_write> vertices: array<Vertex>; // Input vertices
 @group(0) @binding(4) var<storage, read_write> shadowVolumeVertices: array<Vertex>; // Output vertices for shadow volume
+@group(0) @binding(5) var<storage, read_write> shadowVolumeVertexCount: atomic<u32>; // Counter for shadow volume vertices
 
 // Compute shader entry point
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let triIndex = global_id.x; // Get the triangle index
-    var l_pos = vec4(1, 1, 0, 1);
 
     // Fetch triangle vertices
     let tri = Triangle(vertices[triIndex * 3 + 0], vertices[triIndex * 3 + 1], vertices[triIndex * 3 + 2]);
@@ -75,20 +77,27 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // Extrude the edge if it's a silhouette or does not have a neighbor
         if faces_light != (dot(ns0, d0) > 0.0) {
-            let i0 = faces_light ? v0 : v1;
-            let i1 = faces_light ? v1 : v0;
+            var i0 = v1;
+            var i1 = v0;
+            if(faces_light){
+                i0 = v0;
+                i1 = v1;
+            }
 
             let v0_ext = Vertex(p0, vec3<f32>(0.0));
             let v1_ext = Vertex(vec4<f32>(l_pos.w * p0.xyz - l_pos.xyz, 0.0), vec3<f32>(0.0));
+            let v2_ext = Vertex(p1, vec3<f32>(0.0));
+            let v3_ext = Vertex(vec4<f32>(l_pos.w * p1.xyz - l_pos.xyz, 0.0),  vec3<f32>(0.0));
 
-            addShadowVolumeQuad(v0_ext, v1_ext, p1, vec4<f32>(l_pos.w * p1.xyz - l_pos.xyz, 0.0));
+            //addShadowVolumeQuad(v0_ext, v1_ext, p1, vec4<f32>(l_pos.w * p1.xyz - l_pos.xyz, 0.0));
+            addShadowVolumeQuad(v0_ext, v1_ext, v2_ext, v3_ext);
         }
     }
 }
 
 // Helper function to add a triangle to the shadow volume
 fn addShadowVolumeTriangle(v0: Vertex, v1: Vertex, v2: Vertex) {
-    let index = atomicAdd(shadowVolumeVertexCount, 3);
+    let index = atomicAdd(&shadowVolumeVertexCount, 3);
     shadowVolumeVertices[index + 0] = v0;
     shadowVolumeVertices[index + 1] = v1;
     shadowVolumeVertices[index + 2] = v2;
@@ -96,7 +105,7 @@ fn addShadowVolumeTriangle(v0: Vertex, v1: Vertex, v2: Vertex) {
 
 // Helper function to add a quad to the shadow volume (as a triangle strip)
 fn addShadowVolumeQuad(v0: Vertex, v1: Vertex, v2: Vertex, v3: Vertex) {
-    let index = atomicAdd(shadowVolumeVertexCount, 4);
+    let index = atomicAdd(&shadowVolumeVertexCount, 4);
     shadowVolumeVertices[index + 0] = v0;
     shadowVolumeVertices[index + 1] = v1;
     shadowVolumeVertices[index + 2] = v2;
