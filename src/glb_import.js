@@ -113,6 +113,15 @@ export class GLTFBufferView {
         new (this.buffer.constructor)(buf.getMappedRange()).set(this.buffer);
         buf.unmap();
         this.gpuBuffer = buf;
+
+        let volume_buffer = device.createBuffer({
+            size: alignTo(this.buffer.byteLength, 4),
+            usage: this.usage,
+            mappedAtCreation: true
+        });
+        new (this.buffer.constructor)(volume_buffer.getMappedRange()).set(this.buffer);
+        volume_buffer.unmap();
+        this.volume_buffer = volume_buffer;
     }
 }
 
@@ -146,20 +155,18 @@ export class GLTFPrimitive {
 
     // Build the primitive render commands into the bundle
     buildRenderBundle(bundleEncoder, renderPipeline) {
-        console.log(renderPipeline)
-
-        if (renderPipeline.label == "Shadow Pipeline")
-            bundleEncoder.setBindGroup(2, this.material.bindGroup);
-        else
-            bundleEncoder.setBindGroup(2, this.material.bindGroup);
+        console.log("im gona cry")
+        console.log(this.indices.view);
+        console.log(this.positions.view);
+        console.log(this.normals.view);
+        bundleEncoder.setBindGroup(2, this.material.bindGroup);
         bundleEncoder.setPipeline(renderPipeline);
         bundleEncoder.setVertexBuffer(0,
             this.positions.view.gpuBuffer,
-            this.positions.byteOffset,
-            this.positions.length);
+            this.positions.byteOffset);
         if (this.normals) {
             bundleEncoder.setVertexBuffer(
-                1, this.normals.view.gpuBuffer, this.normals.byteOffset, this.normals.length);
+                1, this.normals.view.gpuBuffer, this.normals.byteOffset);
         }
         if (this.indices) {
             let indexFormat = this.indices.componentType == GLTFComponentType.UNSIGNED_SHORT
@@ -167,12 +174,19 @@ export class GLTFPrimitive {
                 : 'uint32';
             bundleEncoder.setIndexBuffer(this.indices.view.gpuBuffer,
                 indexFormat,
-                this.indices.byteOffset,
-                this.indices.length);
+                this.indices.byteOffset);
             bundleEncoder.drawIndexed(this.indices.count);
         } else {
             bundleEncoder.draw(this.positions.count);
         }
+    }
+
+    buildVolumeRenderBundle(bundleEncoder, renderPipeline) {
+        bundleEncoder.setPipeline(renderPipeline);
+        bundleEncoder.setVertexBuffer(0,
+            this.positions.view.volume_buffer,
+            this.positions.byteOffset);
+        bundleEncoder.draw(this.positions.count);
     }
 }
 
@@ -269,6 +283,41 @@ export class GLTFNode {
         this.renderBundle = bundleEncoder.finish();
         return this.renderBundle;
     }
+
+    buildVolumeRenderBundle(device,
+        viewParamsLayout,
+        viewParamsBindGroup,
+        renderPipeline,
+        swapChainFormat) {
+            let nodeParamsLayout = device.createBindGroupLayout({
+                entries: [
+                    {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+                    {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
+                    {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
+                ]
+            });
+    
+            this.bindGroup = device.createBindGroup({
+                layout: nodeParamsLayout,
+                entries: [
+                    {binding: 0, resource: {buffer: this.modelMatrix}},
+                    {binding: 1, resource: {buffer: this.inverse_transpose_uniform}},
+                    {binding: 2, resource: {buffer: this.node_id_uniform}}
+                ]
+            });
+    
+            let bundleEncoder;
+            bundleEncoder = device.createRenderBundleEncoder({
+                colorFormats: [],
+                depthStencilFormat: 'depth24plus-stencil8',
+            });
+
+            bundleEncoder.setBindGroup(0, viewParamsBindGroup);
+            bundleEncoder.setBindGroup(1, this.bindGroup); //node bind group
+            
+            this.mesh.primitives[0].buildVolumeRenderBundle();
+
+        }
 
 }
 
@@ -385,7 +434,8 @@ export class GLBModel {
         for (let i = 0; i < this.nodes.length; ++i) {
             console.log(i)
             let n = this.nodes[i];
-            const bundle = n.buildRenderBundle(device,
+            const bundle = n.buildRenderBundle(
+                device,
                 viewParamsLayout,
                 viewParamsBindGroup,
                 shadowParamsLayout,
@@ -395,6 +445,88 @@ export class GLBModel {
             renderBundles.push(bundle);
         }
         return renderBundles;
+    }
+
+    buildVolumeRenderBundles(device, viewParamsLayout, viewParamsBindGroup, renderPipeline, swapChainFormat) {
+        let renderBundles = [];
+        for (let i = 0; i < this.nodes.length; ++i) {
+            console.log(i)
+            let n = this.nodes[i];
+            const bundle = n.buildVolumeRenderBundle(
+                device,
+                viewParamsLayout,
+                viewParamsBindGroup,
+                renderPipeline,
+                swapChainFormat);
+            renderBundles.push(bundle);
+        }
+        return renderBundles;
+    }
+
+    getTriangle() {
+        // Define vertices for a triangle (x, y, z)
+        const vertices = new Float32Array([
+            0.0,  1.0, 0.0,  // Vertex 1
+           -1.0, -1.0, 0.0,  // Vertex 2
+            1.0, -1.0, 0.0   // Vertex 3
+        ]);
+
+        const normals = new Float32Array([
+            0.0,  0.0, 1.0,  // Normal for Vertex 1
+            0.0,  0.0, 1.0,  // Normal for Vertex 2
+            0.0,  0.0, 1.0   // Normal for Vertex 3
+        ]);    
+    
+        // Define indices for the triangle
+        const indices = new Uint16Array([
+            0, 1, 2  // Triangle
+        ]);
+    
+        // Ensure indices are padded to a multiple of 4 bytes
+        const paddedIndices = new Uint16Array(Math.ceil(indices.length / 2) * 2);
+        paddedIndices.set(indices);
+    
+        return{ vertices, normals, indices: paddedIndices };
+    }
+
+    getRenderBundle(device, viewParams, viewParamsBindGroup, renderPipeline, swapChainFormat){
+        // Generate new triangle data
+        const { vertices, normals, indices } = this.getTriangle();
+
+        // Create buffers for the new triangle
+        const vertexBuffer = device.createBuffer({
+            size: vertices.byteLength,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(vertexBuffer, 0, vertices);
+
+        const indexBuffer = device.createBuffer({
+            size: indices.byteLength,
+            usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(indexBuffer, 0, indices);
+
+        const normalBuffer = device.createBuffer({
+            size: normals.byteLength,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(normalBuffer, 0, normals);
+
+        // Set the new vertex and index buffers
+        const bundleEncoder = device.createRenderBundleEncoder({
+            colorFormats: [swapChainFormat],
+            depthStencilFormat: 'depth24plus-stencil8',
+        });
+        bundleEncoder.setPipeline(renderPipeline);
+        bundleEncoder.setVertexBuffer(0, vertexBuffer);
+        bundleEncoder.setVertexBuffer(1, normalBuffer);
+        bundleEncoder.setIndexBuffer(indexBuffer, 'uint16');
+
+        // Draw the new triangle
+        bundleEncoder.drawIndexed(indices.length);
+        const renderBundle = bundleEncoder.finish();
+        
+        return [renderBundle]
     }
 };
 

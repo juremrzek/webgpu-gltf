@@ -30,6 +30,7 @@ function get_shadow_matrix(n, l ,x) {
             "assets/scene_cube_no_walls.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
 
+    console.log(glbModel);
     const canvas = document.getElementById("webgpu-canvas");
     const context = canvas.getContext("webgpu");
     const swapChainFormat = "bgra8unorm";
@@ -212,7 +213,7 @@ function get_shadow_matrix(n, l ,x) {
         device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
 
     const secondPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [viewParamsLayout, nodeParamsLayout, materialBindGroupLayout]
+        bindGroupLayouts: []
     });
     const secondPipelineDescriptor = {
         label: 'Second Pipeline',
@@ -222,12 +223,31 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: 'second_vertex_main',
             buffers: vertexBuffers
         },
+        fragment: {
+            module: secondShaderModule,
+            entryPoint: 'second_fragment_main',
+            targets:[{
+                format: swapChainFormat,
+                blend: {
+                    color: {
+                        srcFactor: 'src-alpha',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add'
+                    },
+                    alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add'
+                    }
+                },
+            }],
+        },
         primitive: {
             cullMode: 'none',
         },
         depthStencil: {
             depthWriteEnabled: false, // Don't write to depth buffer
-            depthCompare: 'less', // But do use depth test
+            depthCompare: 'always', // But do use depth test
             format: 'depth24plus-stencil8',
             stencilFront: {
                 compare: 'always',
@@ -248,7 +268,11 @@ function get_shadow_matrix(n, l ,x) {
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
     const secondRenderPassDesc = {
-        colorAttachments: [],
+        colorAttachments: [{
+            view: undefined,
+            loadOp: "load",
+            storeOp: "store"
+        }],
         depthStencilAttachment: {
             view: secondDepthTextureView,
             depthLoadOp: "load",
@@ -260,9 +284,11 @@ function get_shadow_matrix(n, l ,x) {
         }
     };
     
-    const secondRenderBundles = glbFile.buildRenderBundles(
-            device, viewParamsLayout, viewParamsBindGroup, null, null, secondRenderPipeline, swapChainFormat);
-        
+    //const secondRenderBundles = glbFile.buildRenderBundles(
+    //        device, viewParamsLayout, viewParamsBindGroup, null, null, secondRenderPipeline, swapChainFormat);
+    //const secondRenderBundles = glbFile.buildVolumeRenderBundles(
+        //device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
+    const secondRenderBundles = glbFile.getRenderBundle(device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
     /*const thirdRenderPassDesc = {
         colorAttachments: [{
             view: colorTextureView,
@@ -406,6 +432,7 @@ function get_shadow_matrix(n, l ,x) {
         let start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         firstRenderPassDesc.colorAttachments[0].view = colorTextureView
+        secondRenderPassDesc.colorAttachments[0].view = colorTextureView
 
         const commandEncoder = device.createCommandEncoder();
 
