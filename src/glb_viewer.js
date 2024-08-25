@@ -120,11 +120,15 @@ function get_shadow_matrix(n, l ,x) {
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
     const viewBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+    const modelBuffer = device.createBuffer({
+        size: 4 * 4 * 4,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
     const viewParamsBindGroup = device.createBindGroup(
         {layout: viewParamsLayout, entries: [
             {binding: 0, resource: {buffer: projectionBuffer}},
             {binding: 1, resource: {buffer:viewBuffer}},
-            {binding: 2, resource: {buffer:lightViewProjBuffer}},
+            {binding: 2, resource: {buffer:modelBuffer}},
         ]}
     );
 
@@ -218,6 +222,8 @@ function get_shadow_matrix(n, l ,x) {
 
     const positionsData = glbFile.nodes[1].mesh.primitives[1].positions.view.gpuBuffer
     const normalsData = glbFile.nodes[1].mesh.primitives[1].normals.view.gpuBuffer
+    const indicesData = glbFile.nodes[1].mesh.primitives[1].indices.view.gpuBuffer
+    const modelMatrixData = glbFile.nodes[1].modelMatrix;
 
     const positionsBuffer = device.createBuffer({
         label: "positions for volumes",
@@ -227,6 +233,11 @@ function get_shadow_matrix(n, l ,x) {
     const normalsBuffer = device.createBuffer({
         label: "normals for volumes",
         size: normalsData.size,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    const indicesBuffer = device.createBuffer({
+        label: "indices for volumes",
+        size: indicesData.size,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
@@ -245,6 +256,22 @@ function get_shadow_matrix(n, l ,x) {
         normalsBuffer,       // Destination buffer
         0,               // Destination offset
         normalsData.size       // Size of the data to copy
+    );
+
+    tempCommandEncoder.copyBufferToBuffer(
+        indicesData, // Source buffer
+        0,               // Source offset
+        indicesBuffer,       // Destination buffer
+        0,               // Destination offset
+        indicesData.size       // Size of the data to copy
+    );
+
+    tempCommandEncoder.copyBufferToBuffer(
+        modelMatrixData, // Source buffer
+        0,               // Source offset
+        modelBuffer,       // Destination buffer
+        0,               // Destination offset
+        modelMatrixData.size       // Size of the data to copy
     );
 
     // Submit the command encoder to the GPU queue
@@ -278,20 +305,26 @@ function get_shadow_matrix(n, l ,x) {
 
     const computeBindGroupLayout = device.createBindGroupLayout({
         entries: [
-            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // positions buffer (input)
-            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // normals buffer (input)
-            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
-            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // model
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // view
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // positions buffer (input)
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // normals buffer (input)
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // index buffer (input)
+            { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
+            { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
         ],
     });
 
     const computeBindGroup = device.createBindGroup({
         layout: computeBindGroupLayout,
         entries: [
-            { binding: 0, resource: { buffer: positionsBuffer } },
-            { binding: 1, resource: { buffer: normalsBuffer } },
-            { binding: 2, resource: { buffer: shadowVolumeBuffer } },
-            { binding: 3, resource: { buffer: shadowVolumeCountBuffer } },
+            { binding: 0, resource: { buffer: modelBuffer } },
+            { binding: 1, resource: { buffer: viewBuffer } },
+            { binding: 2, resource: { buffer: positionsBuffer } },
+            { binding: 3, resource: { buffer: normalsBuffer } },
+            { binding: 4, resource: { buffer: indicesBuffer } },
+            { binding: 5, resource: { buffer: shadowVolumeBuffer } },
+            { binding: 6, resource: { buffer: shadowVolumeCountBuffer } },
         ],
     });
 
@@ -532,7 +565,7 @@ function get_shadow_matrix(n, l ,x) {
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
         device.queue.writeBuffer(viewBuffer, 0, view_matrix);
-        device.queue.writeBuffer(lightViewProjBuffer, 0, light_view_projection_matrix);
+        //device.queue.writeBuffer(lightViewProjBuffer, 0, light_view_projection_matrix);
 
         const firstRenderPass = commandEncoder.beginRenderPass(firstRenderPassDesc);
         firstRenderPass.executeBundles(firstRenderBundles);

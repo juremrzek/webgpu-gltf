@@ -206,7 +206,7 @@ export class GLTFNode {
 
     upload(device) {
         const modelMatrixBuffer = device.createBuffer(
-            {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
+            {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_SRC, mappedAtCreation: true});
         new Float32Array(modelMatrixBuffer.getMappedRange()).set(this.transform);
         modelMatrixBuffer.unmap();
         this.modelMatrix = modelMatrixBuffer;
