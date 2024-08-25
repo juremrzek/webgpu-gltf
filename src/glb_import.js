@@ -107,7 +107,7 @@ export class GLTFBufferView {
         // Note: must align to 4 byte size when mapped at creation is true
         let buf = device.createBuffer({
             size: alignTo(this.buffer.byteLength, 4),
-            usage: this.usage,
+            usage: this.usage | GPUBufferUsage.COPY_SRC,
             mappedAtCreation: true
         });
         new (this.buffer.constructor)(buf.getMappedRange()).set(this.buffer);
@@ -205,23 +205,22 @@ export class GLTFNode {
     }
 
     upload(device) {
-        let modelMatrixBuffer = device.createBuffer(
+        const modelMatrixBuffer = device.createBuffer(
             {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
         new Float32Array(modelMatrixBuffer.getMappedRange()).set(this.transform);
         modelMatrixBuffer.unmap();
         this.modelMatrix = modelMatrixBuffer;
-        let inverse_transpose = mat4.create();
+        const inverse_transpose = mat4.create();
         mat4.invert(inverse_transpose, this.transform);
         mat4.transpose(inverse_transpose, inverse_transpose);
 
-        let inverse_transpose_buffer = device.createBuffer(
+        const inverse_transpose_buffer = device.createBuffer(
             {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
 
         new Float32Array(inverse_transpose_buffer.getMappedRange()).set(inverse_transpose);
         inverse_transpose_buffer.unmap();
         this.inverse_transpose_uniform = inverse_transpose_buffer;
-        console.log("node id:", this.id)
-        let node_id_buffer = device.createBuffer(
+        const node_id_buffer = device.createBuffer(
             {size: 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
 
         new Uint32Array(node_id_buffer.getMappedRange())[0] = this.id;

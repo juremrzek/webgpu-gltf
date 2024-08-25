@@ -146,6 +146,9 @@ function get_shadow_matrix(n, l ,x) {
     const secondShaderModule = device.createShaderModule({code: secondShaders});
     const thirdShaderModule = device.createShaderModule({code: thirdShaders});
 
+    const commandEncoder = device.createCommandEncoder();
+    const tempCommandEncoder = device.createCommandEncoder();
+
     const firstRenderPassDesc = {
         colorAttachments: [{
             view: undefined,
@@ -213,19 +216,104 @@ function get_shadow_matrix(n, l ,x) {
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
 
+    const positionsData = glbFile.nodes[1].mesh.primitives[1].positions.view.gpuBuffer
+    const normalsData = glbFile.nodes[1].mesh.primitives[1].normals.view.gpuBuffer
+
+    const positionsBuffer = device.createBuffer({
+        label: "positions for volumes",
+        size: positionsData.size,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    const normalsBuffer = device.createBuffer({
+        label: "normals for volumes",
+        size: normalsData.size,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    // Copy data from the original buffer to the new buffer
+    tempCommandEncoder.copyBufferToBuffer(
+        positionsData, // Source buffer
+        0,               // Source offset
+        positionsBuffer,       // Destination buffer
+        0,               // Destination offset
+        positionsData.size       // Size of the data to copy
+    );
+
+    tempCommandEncoder.copyBufferToBuffer(
+        normalsData, // Source buffer
+        0,               // Source offset
+        normalsBuffer,       // Destination buffer
+        0,               // Destination offset
+        normalsData.size       // Size of the data to copy
+    );
+
+    // Submit the command encoder to the GPU queue
+    const commands = tempCommandEncoder.finish();
+    device.queue.submit([commands]);
+
+    const shadowVolumeBuffer = device.createBuffer({
+        size: positionsBuffer.size * 4, // 4x the size to account for extruded vertices
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+    });
+
+    const shadowVolumeCountBuffer = device.createBuffer({
+        size: 4, // 4x the size to account for extruded vertices
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true,
+    });
+    new Uint32Array(shadowVolumeCountBuffer.getMappedRange())[0] = 0;
+    shadowVolumeCountBuffer.unmap();
+
+    console.log("normals buffer:");
+    console.log(normalsBuffer);
+
+    console.log("poiitons buffer:");
+    console.log(positionsBuffer);
+
+    console.log("shadow volume buffer:")
+    console.log(shadowVolumeBuffer);
+
+    console.log("shadow volume count buffer:")
+    console.log(shadowVolumeCountBuffer);
+
+    const computeBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // positions buffer (input)
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // normals buffer (input)
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
+        ],
+    });
+
+    const computeBindGroup = device.createBindGroup({
+        layout: computeBindGroupLayout,
+        entries: [
+            { binding: 0, resource: { buffer: positionsBuffer } },
+            { binding: 1, resource: { buffer: normalsBuffer } },
+            { binding: 2, resource: { buffer: shadowVolumeBuffer } },
+            { binding: 3, resource: { buffer: shadowVolumeCountBuffer } },
+        ],
+    });
+
+    const computePipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [computeBindGroupLayout]
+    });
     const computePipeline = device.createComputePipeline({
-        layout: "auto",
+        label: "generate volumes",
+        layout: computePipelineLayout,
         compute: {
             module: computeShadersModule,
             entryPoint: "main"
         }
-        });
+    });
 
-
-
+    const volumeVertexBuffers = [{
+        arrayStride: 12,
+        attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
+    }];
 
     const secondPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: []
+        bindGroupLayouts: [viewParamsLayout]
     });
     const secondPipelineDescriptor = {
         label: 'Second Pipeline',
@@ -233,7 +321,7 @@ function get_shadow_matrix(n, l ,x) {
         vertex: {
             module: secondShaderModule,
             entryPoint: 'second_vertex_main',
-            buffers: vertexBuffers
+            buffers: volumeVertexBuffers
         },
         fragment: {
             module: secondShaderModule,
@@ -300,7 +388,27 @@ function get_shadow_matrix(n, l ,x) {
     //        device, viewParamsLayout, viewParamsBindGroup, null, null, secondRenderPipeline, swapChainFormat);
     //const secondRenderBundles = glbFile.buildVolumeRenderBundles(
         //device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
-    const secondRenderBundles = glbFile.getRenderBundle(device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
+    //const secondRenderBundles = glbFile.getRenderBundle(device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
+
+    const vertexCount = new Uint32Array(1);
+
+    const shadowVolumeVertexCountReadBuffer = device.createBuffer({
+        size: vertexCount.byteLength,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    
+    const bundleEncoder = device.createRenderBundleEncoder({
+        colorFormats: [swapChainFormat],
+        depthStencilFormat: 'depth24plus-stencil8',
+    });
+    bundleEncoder.setPipeline(secondRenderPipeline);
+    bundleEncoder.setVertexBuffer(0, shadowVolumeBuffer);
+    bundleEncoder.setBindGroup(0, viewParamsBindGroup);
+
+    // Draw the new triangle
+    bundleEncoder.draw(72);
+    const secondRenderBundles = [bundleEncoder.finish()];
+
     /*const thirdRenderPassDesc = {
         colorAttachments: [{
             view: colorTextureView,
@@ -363,7 +471,6 @@ function get_shadow_matrix(n, l ,x) {
     const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     const projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
-    console.log(projection_matrix)
     const controller = new Controller();
     controller.mousemove = function (prev, cur, evt) {
         if (evt.buttons == 1) {
@@ -403,14 +510,6 @@ function get_shadow_matrix(n, l ,x) {
         //t += 0.1;
         const light_projection_matrix = mat4.create();
         const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(50, 100, t), [0, 0, 0], [0, 1, 0]);
-        //ORTHO
-        /*const left = -40;
-        const right = 40;
-        const bottom = -40;
-        const top = 40;
-        const near = -500;
-        const far = 200;
-        mat4.ortho(light_projection_matrix, left, right, bottom, top, near, far);*/
         var fovy = Math.PI / 2
         var aspect = canvas.width / canvas.height;
         var near = 0.01
@@ -418,35 +517,17 @@ function get_shadow_matrix(n, l ,x) {
         var out = []
         var eps = 1.0
         mat4.perspective(projection_matrix, fovy, aspect, near, null);
-        /*projection_matrix[0] = f / aspect
-        projection_matrix[1] = 0
-        projection_matrix[2] = 0
-        projection_matrix[3] = 0
-        projection_matrix[4] = 0
-        projection_matrix[5] = f
-        projection_matrix[6] = 0
-        projection_matrix[7] = 0
-        projection_matrix[8] = 0
-        projection_matrix[9] = 0
-        projection_matrix[10] = -1 + eps
-        projection_matrix[11] = -1
-        projection_matrix[12] = 0
-        projection_matrix[13] = 0
-        projection_matrix[14] = (eps - 2) * near
-        projection_matrix[15] = 0*/
 
 
         const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
 
         
-
+        const commandEncoder = device.createCommandEncoder();
 
         let start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         firstRenderPassDesc.colorAttachments[0].view = colorTextureView
         secondRenderPassDesc.colorAttachments[0].view = colorTextureView
-
-        const commandEncoder = device.createCommandEncoder();
 
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
@@ -457,12 +538,46 @@ function get_shadow_matrix(n, l ,x) {
         firstRenderPass.executeBundles(firstRenderBundles);
         firstRenderPass.end();
 
+        const computePass = commandEncoder.beginComputePass();
+        computePass.setPipeline(computePipeline);
+        computePass.setBindGroup(0, computeBindGroup);
+        const numTriangles = positionsBuffer.size / (3 * 3); // Assuming 3 vertices per triangle
+        computePass.dispatchWorkgroups(numTriangles); // Adjust workgroup size if necessary
+
+        computePass.end();
+
+        //shadowVolumeBuffer should be updated
+
+
+
+
+
+
         const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();
+
+
+        const computeCommandEncoder = device.createCommandEncoder();
+        computeCommandEncoder.copyBufferToBuffer(
+            shadowVolumeCountBuffer, 0, shadowVolumeVertexCountReadBuffer, 0, vertexCount.byteLength
+        );    
+        device.queue.submit([computeCommandEncoder.finish()]);
+        await shadowVolumeVertexCountReadBuffer.mapAsync(GPUMapMode.READ);
+        const vertexCountArray = new Uint32Array(shadowVolumeVertexCountReadBuffer.getMappedRange());
+        const shadowVolumeVertexCount = vertexCountArray[0];
+        shadowVolumeVertexCountReadBuffer.unmap();
+    
+        //console.log("shadow volume vertex count:")
+        //console.log(shadowVolumeVertexCount);
+        //console.log(numTriangles)
+
+
+
+
 
         const end = performance.now();
         numFrames += 1;

@@ -12,24 +12,40 @@ struct Triangle {
     v2: Vertex
 };
 
-@group(0) @binding(0) var<uniform> l_pos: vec4<f32>; // Light position in eye space
+struct Uniforms {
+    lightPosition: vec4<f32>,
+};
 
-@group(0) @binding(3) var<storage, read_write> vertices: array<Vertex>; // Input vertices
-@group(0) @binding(4) var<storage, read_write> shadowVolumeVertices: array<Vertex>; // Output vertices for shadow volume
-@group(0) @binding(5) var<storage, read_write> shadowVolumeVertexCount: atomic<u32>; // Counter for shadow volume vertices
+//@group(0) @binding(0) var<uniform> l_pos: vec4<f32>; // Light position in eye space
+
+//@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(0) var<storage, read_write> positions: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> normals: array<vec3<f32>>;
+@group(0) @binding(2) var<storage, read_write> shadowVolumeVertices: array<Vertex>; // Output vertices for shadow volume
+@group(0) @binding(3) var<storage, read_write> shadowVolumeVertexCount: atomic<u32>; // Counter for shadow volume vertices
 
 // Compute shader entry point
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let triIndex = global_id.x; // Get the triangle index
+    let l_pos = vec4<f32>(20, -20, 0, 1);
+
+    //atomicStore(&shadowVolumeVertexCount, triIndex);
 
     // Fetch triangle vertices
-    let tri = Triangle(vertices[triIndex * 3 + 0], vertices[triIndex * 3 + 1], vertices[triIndex * 3 + 2]);
+    let tri = Triangle(
+        Vertex(positions[triIndex * 3 + 0], normals[triIndex * 3 + 0]),
+        Vertex(positions[triIndex * 3 + 1], normals[triIndex * 3 + 1]),
+        Vertex(positions[triIndex * 3 + 2], normals[triIndex * 3 + 2])
+    );
 
     // Compute normal at each vertex
-    let ns0 = cross(tri.v1.pos.xyz - tri.v0.pos.xyz, tri.v2.pos.xyz - tri.v0.pos.xyz);
-    let ns1 = cross(tri.v2.pos.xyz - tri.v1.pos.xyz, tri.v0.pos.xyz - tri.v1.pos.xyz);
-    let ns2 = cross(tri.v0.pos.xyz - tri.v2.pos.xyz, tri.v1.pos.xyz - tri.v2.pos.xyz);
+    //let ns0 = cross(tri.v1.pos.xyz - tri.v0.pos.xyz, tri.v2.pos.xyz - tri.v0.pos.xyz);
+    //let ns1 = cross(tri.v2.pos.xyz - tri.v1.pos.xyz, tri.v0.pos.xyz - tri.v1.pos.xyz);
+    //let ns2 = cross(tri.v0.pos.xyz - tri.v2.pos.xyz, tri.v1.pos.xyz - tri.v2.pos.xyz);
+    let ns0 = tri.v1.normal;
+    let ns1 = tri.v2.normal;
+    let ns2 = tri.v2.normal;
 
     // Compute direction from vertices to light
     let d0 = l_pos.xyz - l_pos.w * tri.v0.pos.xyz;
@@ -47,8 +63,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         faces_light = false;
     }
 
+    if (faces_light) {
+        //atomicAdd(&shadowVolumeVertexCount, 1);
+    }
+
     // Z-pass: Generate caps and extrusions for shadow volume
-    if (false) {
+    if (false) { //if this is true, use z-fail, if false use z-pass
         // Near cap: simply add the triangle
         addShadowVolumeTriangle(tri.v0, tri.v1, tri.v2);
 
