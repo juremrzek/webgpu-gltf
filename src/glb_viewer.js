@@ -220,6 +220,7 @@ function get_shadow_matrix(n, l ,x) {
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
 
+    const positions = glbFile.nodes[1].mesh.primitives[1].positions;
     const positionsData = glbFile.nodes[1].mesh.primitives[1].positions.view.gpuBuffer
     const normalsData = glbFile.nodes[1].mesh.primitives[1].normals.view.gpuBuffer
     const indicesData = glbFile.nodes[1].mesh.primitives[1].indices.view.gpuBuffer
@@ -228,7 +229,7 @@ function get_shadow_matrix(n, l ,x) {
     const positionsBuffer = device.createBuffer({
         label: "positions for volumes",
         size: positionsData.size,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX |  GPUBufferUsage.COPY_SRC,
     });
     const normalsBuffer = device.createBuffer({
         label: "normals for volumes",
@@ -238,7 +239,7 @@ function get_shadow_matrix(n, l ,x) {
     const indicesBuffer = device.createBuffer({
         label: "indices for volumes",
         size: indicesData.size,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDEX
     });
 
     // Copy data from the original buffer to the new buffer
@@ -278,9 +279,9 @@ function get_shadow_matrix(n, l ,x) {
     const commands = tempCommandEncoder.finish();
     device.queue.submit([commands]);
 
-    const shadowVolumeBuffer = device.createBuffer({
-        size: positionsBuffer.size * 4, // 4x the size to account for extruded vertices
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+    const shadowVolumePositionsBuffer = device.createBuffer({
+        size: positionsData.size, // 4x the size to account for extruded vertices
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
     const shadowVolumeCountBuffer = device.createBuffer({
@@ -291,6 +292,11 @@ function get_shadow_matrix(n, l ,x) {
     new Uint32Array(shadowVolumeCountBuffer.getMappedRange())[0] = 0;
     shadowVolumeCountBuffer.unmap();
 
+    const shadowVolumeIndicesBuffer = device.createBuffer({
+        size: indicesBuffer.size, // 4x the size to account for extruded vertices
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+    });
+
     console.log("normals buffer:");
     console.log(normalsBuffer);
 
@@ -298,7 +304,7 @@ function get_shadow_matrix(n, l ,x) {
     console.log(positionsBuffer);
 
     console.log("shadow volume buffer:")
-    console.log(shadowVolumeBuffer);
+    console.log(shadowVolumePositionsBuffer);
 
     console.log("shadow volume count buffer:")
     console.log(shadowVolumeCountBuffer);
@@ -307,11 +313,12 @@ function get_shadow_matrix(n, l ,x) {
         entries: [
             { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // model
             { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // view
-            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // positions buffer (input)
-            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // normals buffer (input)
-            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // index buffer (input)
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // positions buffer (input)
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // normals buffer (input)
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // index buffer (input)
             { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
             { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
+            { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
         ],
     });
 
@@ -323,8 +330,9 @@ function get_shadow_matrix(n, l ,x) {
             { binding: 2, resource: { buffer: positionsBuffer } },
             { binding: 3, resource: { buffer: normalsBuffer } },
             { binding: 4, resource: { buffer: indicesBuffer } },
-            { binding: 5, resource: { buffer: shadowVolumeBuffer } },
+            { binding: 5, resource: { buffer: shadowVolumePositionsBuffer } },
             { binding: 6, resource: { buffer: shadowVolumeCountBuffer } },
+            { binding: 7, resource: { buffer: shadowVolumeIndicesBuffer } },
         ],
     });
 
@@ -424,6 +432,9 @@ function get_shadow_matrix(n, l ,x) {
     //const secondRenderBundles = glbFile.getRenderBundle(device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
 
     const vertexCount = new Uint32Array(1);
+    console.log("ok")
+    console.log(shadowVolumePositionsBuffer)
+    console.log(positionsBuffer);
 
     const shadowVolumeVertexCountReadBuffer = device.createBuffer({
         size: vertexCount.byteLength,
@@ -435,11 +446,15 @@ function get_shadow_matrix(n, l ,x) {
         depthStencilFormat: 'depth24plus-stencil8',
     });
     bundleEncoder.setPipeline(secondRenderPipeline);
-    bundleEncoder.setVertexBuffer(0, shadowVolumeBuffer);
+    bundleEncoder.setVertexBuffer(0, shadowVolumePositionsBuffer);
     bundleEncoder.setBindGroup(0, viewParamsBindGroup);
 
     // Draw the new triangle
-    bundleEncoder.draw(72);
+    bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
+        'uint16',
+        0);
+    bundleEncoder.drawIndexed(positions.count);
+    //bundleEncoder.draw(positions.count);
     const secondRenderBundles = [bundleEncoder.finish()];
 
     /*const thirdRenderPassDesc = {
@@ -538,7 +553,7 @@ function get_shadow_matrix(n, l ,x) {
     const fpsDisplay = document.getElementById("fps");
     let numFrames = 0;
     let totalTimeMS = 0;
-    let t = -100;
+    let t = 1;
     const render = async () => {
         //t += 0.1;
         const light_projection_matrix = mat4.create();
@@ -574,12 +589,13 @@ function get_shadow_matrix(n, l ,x) {
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup);
-        const numTriangles = positionsBuffer.size / (3 * 3); // Assuming 3 vertices per triangle
-        computePass.dispatchWorkgroups(numTriangles); // Adjust workgroup size if necessary
+        const numTriangles = positions.count;
+        computePass.dispatchWorkgroups(numTriangles, 1, 1);
 
         computePass.end();
 
-        //shadowVolumeBuffer should be updated
+        //console.log(Math.floor(t))
+        //shadowVolumePositionsBuffer should be updated
 
 
 
@@ -607,6 +623,82 @@ function get_shadow_matrix(n, l ,x) {
         //console.log("shadow volume vertex count:")
         //console.log(shadowVolumeVertexCount);
         //console.log(numTriangles)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // Create a staging buffer
+    const stagingBuffer = device.createBuffer({
+        size: shadowVolumePositionsBuffer.size,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
+    // Create a command encoder
+    const commandEncoder2 = device.createCommandEncoder();
+
+    // Copy the contents of the shadowVolumePositionsBuffer to the staging buffer
+    commandEncoder2.copyBufferToBuffer(
+        shadowVolumePositionsBuffer, // source buffer
+        0, // source offset
+        stagingBuffer, // destination buffer
+        0, // destination offset
+        shadowVolumePositionsBuffer.size // size of the copy
+    );
+
+    // Submit the commands
+    const commands2 = commandEncoder2.finish();
+    device.queue.submit([commands2]);
+
+    // Map the staging buffer to read its contents
+    await stagingBuffer.mapAsync(GPUMapMode.READ);
+
+    // Get the mapped range and create a typed array
+    const arrayBuffer = stagingBuffer.getMappedRange();
+    const float32Array = new Float32Array(arrayBuffer);
+
+    // Log the contents to the console
+    //console.log(float32Array);
+
+    // Unmap the buffer
+    stagingBuffer.unmap();
+
+
+
+
+
+
+
+
+
 
 
 
