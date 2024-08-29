@@ -21,13 +21,60 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     
 
-    outputIndices[indices[index + 0]] = index + 0;
-    outputIndices[indices[index + 1]] = index + 1;
-    outputIndices[indices[index + 2]] = index + 2;
+    let v0_4 = positions[indices[index + 0]];
+    let v1_4 = positions[indices[index + 1]];
+    let v2_4 = positions[indices[index + 2]];
 
-    outputVertices[indices[index + 0]] = positions[indices[index + 0]];
-    outputVertices[indices[index + 1]] = positions[indices[index + 1]];
-    outputVertices[indices[index + 2]] = positions[indices[index + 2]];
+    let v0_w = v0_4.w;
+    let v1_w = v1_4.w;
+    let v2_w = v2_4.w;
 
+    let v0 = v0_4.xyz;
+    let v1 = v1_4.xyz;
+    let v2 = v2_4.xyz;
+
+    let l_pos = float3(100, 100, 100);
+
+    outputVertices[indices[index + 0]] = float4(v0, v0_w);
+    outputVertices[indices[index + 1]] = float4(v1, v1_w);
+    outputVertices[indices[index + 2]] = float4(v2, v2_w);
+
+    let ns0 = cross(v1 - v0, v2 - v0);
+    let ns1 = cross(v2 - v1, v0 - v1);
+    let ns2 = cross(v0 - v2, v1 - v2);
+
+    let d0 = l_pos - v0;
+    let d1 = l_pos - v1;
+    let d2 = l_pos - v2;
+
+    var faces_light = true;
+    if (!(dot(ns0, d0) > 0.0 || dot(ns1, d1) > 0.0 || dot(ns2, d2) > 0.0)) {
+        faces_light = false;
+    }
+
+    //let extrude_distance = 1000.0;
+    //let ev0 = v0 + normalize(v0 - l_pos) * extrude_distance;
+    //let ev1 = v1 + normalize(v1 - l_pos) * extrude_distance;
+    //let ev2 = v2 + normalize(v2 - l_pos) * extrude_distance;
+
+    outputIndices[index + 0] = indices[index + 0];
+    outputIndices[index + 1] = indices[index + 1];
+    outputIndices[index + 2] = indices[index + 2];
+
+
+
+    /*if(!(dot(ns0, d0) > 0 || dot(ns1, d1) > 0 || dot(ns2, d2) > 0)) {
+
+    }*/
+
+    /*for (int i = 0; i < 3; i++){
+        int v0 = i * 2;
+        int nb = (i * 2 + 1);
+        int v1 = (i * 2 + 2) % 3;
+
+        let 
+    }*/
+
+    //let vf0 = 
     
 }

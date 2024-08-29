@@ -16,6 +16,5 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     
     outputIndices[index*2] = indices[index] & 0xFFFF;
     outputIndices[index*2+1] = (indices[index] & 0xFFFF0000) >> 16;
-    //outputIndices[index + 1] = bro.y;
     
 }
