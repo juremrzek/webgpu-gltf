@@ -18,8 +18,16 @@ struct Mat4Uniform {
 
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
-    let global_index = global_id.x;
+    let index = global_id.x * 3;
     
-    outputVertices[global_index] = positions[global_index];
-    outputIndices[global_index] = indices[global_index];
+
+    outputIndices[index + 0] = index + 0;
+    outputIndices[index + 1] = index + 1;
+    outputIndices[index + 2] = index + 2;
+
+    outputVertices[index + 0] = positions[indices[index + 0]];
+    outputVertices[index + 1] = positions[indices[index + 1]];
+    outputVertices[index + 2] = positions[indices[index + 2]];
+
+    
 }

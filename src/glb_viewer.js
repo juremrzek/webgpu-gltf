@@ -7,6 +7,7 @@ import firstShaders from './first_shaders.wgsl';
 import computeShaders from './compute_volumes.wgsl';
 import secondShaders from './second_shaders.wgsl';
 import thirdShaders from './third_shaders.wgsl';
+import computeIndicesShaders from './compute_32bit_indices.wgsl';
 
 function get_shadow_matrix(n, l ,x) {
     const d = - (n[0] * x[0] + n[1] * x[1] + n[2] * x[2]);
@@ -146,6 +147,7 @@ function get_shadow_matrix(n, l ,x) {
     });
 
     const firstShaderModule = device.createShaderModule({code: firstShaders});
+    const computeIndicesShadersModule = device.createShaderModule({code: computeIndicesShaders});
     const computeShadersModule = device.createShaderModule({code: computeShaders});
     const secondShaderModule = device.createShaderModule({code: secondShaders});
     const thirdShaderModule = device.createShaderModule({code: thirdShaders});
@@ -279,6 +281,58 @@ function get_shadow_matrix(n, l ,x) {
     const commands = tempCommandEncoder.finish();
     device.queue.submit([commands]);
 
+
+
+
+
+
+    const computeIndicesBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
+        ],
+    });
+
+    const computeIndicesBuffer = device.createBuffer({
+        size: indicesBuffer.size * 2, // 4x the size to account for extruded vertices
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
+    const computeIndicesBindGroup = device.createBindGroup({
+        layout: computeIndicesBindGroupLayout,
+        entries: [
+            { binding: 0, resource: { buffer: indicesBuffer } },
+            { binding: 1, resource: { buffer: computeIndicesBuffer } },
+        ],
+    });
+
+    const computeIndicesPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [computeIndicesBindGroupLayout]
+    });
+    const computeIndicesPipeline = device.createComputePipeline({
+        label: "generate indices",
+        layout: computeIndicesPipelineLayout,
+        compute: {
+            module: computeIndicesShadersModule,
+            entryPoint: "main"
+        }
+    });
+    
+    const commandEncoderIndices = device.createCommandEncoder();
+
+    const computeIndicesPass = commandEncoderIndices.beginComputePass();
+    computeIndicesPass.setPipeline(computeIndicesPipeline);
+    computeIndicesPass.setBindGroup(0, computeIndicesBindGroup);
+    const numTriangles = positions.count;
+    computeIndicesPass.dispatchWorkgroups(numTriangles, 1, 1);
+
+    computeIndicesPass.end();
+
+    device.queue.submit([commandEncoderIndices.finish()]);
+
+
+
+
     const shadowVolumePositionsBuffer = device.createBuffer({
         size: positionsData.size, // 4x the size to account for extruded vertices
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
@@ -294,20 +348,9 @@ function get_shadow_matrix(n, l ,x) {
 
     const shadowVolumeIndicesBuffer = device.createBuffer({
         size: indicesBuffer.size, // 4x the size to account for extruded vertices
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
-    console.log("normals buffer:");
-    console.log(normalsBuffer);
-
-    console.log("poiitons buffer:");
-    console.log(positionsBuffer);
-
-    console.log("shadow volume buffer:")
-    console.log(shadowVolumePositionsBuffer);
-
-    console.log("shadow volume count buffer:")
-    console.log(shadowVolumeCountBuffer);
 
     const computeBindGroupLayout = device.createBindGroupLayout({
         entries: [
@@ -329,7 +372,7 @@ function get_shadow_matrix(n, l ,x) {
             { binding: 1, resource: { buffer: viewBuffer } },
             { binding: 2, resource: { buffer: positionsBuffer } },
             { binding: 3, resource: { buffer: normalsBuffer } },
-            { binding: 4, resource: { buffer: indicesBuffer } },
+            { binding: 4, resource: { buffer: computeIndicesBuffer } },
             { binding: 5, resource: { buffer: shadowVolumePositionsBuffer } },
             { binding: 6, resource: { buffer: shadowVolumeCountBuffer } },
             { binding: 7, resource: { buffer: shadowVolumeIndicesBuffer } },
@@ -347,6 +390,9 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: "main"
         }
     });
+
+
+
 
     const volumeVertexBuffers = [{
         arrayStride: 12,
@@ -450,8 +496,8 @@ function get_shadow_matrix(n, l ,x) {
     bundleEncoder.setBindGroup(0, viewParamsBindGroup);
 
     // Draw the new triangle
-    bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
-        'uint16',
+    bundleEncoder.setIndexBuffer(computeIndicesBuffer,
+        'uint32',
         0);
     bundleEncoder.drawIndexed(positions.count);
     //bundleEncoder.draw(positions.count);
@@ -656,9 +702,8 @@ function get_shadow_matrix(n, l ,x) {
 
 
 
-        // Create a staging buffer
     const stagingBuffer = device.createBuffer({
-        size: shadowVolumePositionsBuffer.size,
+        size: shadowVolumeIndicesBuffer.size,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
 
@@ -667,11 +712,11 @@ function get_shadow_matrix(n, l ,x) {
 
     // Copy the contents of the shadowVolumePositionsBuffer to the staging buffer
     commandEncoder2.copyBufferToBuffer(
-        shadowVolumePositionsBuffer, // source buffer
+        shadowVolumeIndicesBuffer, // source buffer
         0, // source offset
         stagingBuffer, // destination buffer
         0, // destination offset
-        shadowVolumePositionsBuffer.size // size of the copy
+        shadowVolumeIndicesBuffer.size // size of the copy
     );
 
     // Submit the commands
@@ -683,10 +728,10 @@ function get_shadow_matrix(n, l ,x) {
 
     // Get the mapped range and create a typed array
     const arrayBuffer = stagingBuffer.getMappedRange();
-    const float32Array = new Float32Array(arrayBuffer);
+    const float32Array = new Int32Array(arrayBuffer);
 
     // Log the contents to the console
-    //console.log(float32Array);
+    console.log(float32Array);
 
     // Unmap the buffer
     stagingBuffer.unmap();
