@@ -21,13 +21,13 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     
 
-    outputIndices[index + 0] = index + 0;
-    outputIndices[index + 1] = index + 1;
-    outputIndices[index + 2] = index + 2;
+    outputIndices[indices[index + 0]] = index + 0;
+    outputIndices[indices[index + 1]] = index + 1;
+    outputIndices[indices[index + 2]] = index + 2;
 
-    outputVertices[index + 0] = positions[indices[index + 0]];
-    outputVertices[index + 1] = positions[indices[index + 1]];
-    outputVertices[index + 2] = positions[indices[index + 2]];
+    outputVertices[indices[index + 0]] = positions[indices[index + 0]];
+    outputVertices[indices[index + 1]] = positions[indices[index + 1]];
+    outputVertices[indices[index + 2]] = positions[indices[index + 2]];
 
     
 }

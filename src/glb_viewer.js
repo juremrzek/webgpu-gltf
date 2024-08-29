@@ -703,7 +703,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const stagingBuffer = device.createBuffer({
-        size: shadowVolumeIndicesBuffer.size,
+        size: shadowVolumePositionsBuffer.size,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
 
@@ -712,11 +712,11 @@ function get_shadow_matrix(n, l ,x) {
 
     // Copy the contents of the shadowVolumePositionsBuffer to the staging buffer
     commandEncoder2.copyBufferToBuffer(
-        shadowVolumeIndicesBuffer, // source buffer
+        shadowVolumePositionsBuffer, // source buffer
         0, // source offset
         stagingBuffer, // destination buffer
         0, // destination offset
-        shadowVolumeIndicesBuffer.size // size of the copy
+        shadowVolumePositionsBuffer.size // size of the copy
     );
 
     // Submit the commands
@@ -728,7 +728,7 @@ function get_shadow_matrix(n, l ,x) {
 
     // Get the mapped range and create a typed array
     const arrayBuffer = stagingBuffer.getMappedRange();
-    const float32Array = new Int32Array(arrayBuffer);
+    const float32Array = new Float32Array(arrayBuffer);
 
     // Log the contents to the console
     console.log(float32Array);
