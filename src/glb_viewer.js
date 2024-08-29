@@ -323,7 +323,7 @@ function get_shadow_matrix(n, l ,x) {
     const computeIndicesPass = commandEncoderIndices.beginComputePass();
     computeIndicesPass.setPipeline(computeIndicesPipeline);
     computeIndicesPass.setBindGroup(0, computeIndicesBindGroup);
-    const numTriangles = positions.count;
+    const numTriangles = positions.count * 3;
     computeIndicesPass.dispatchWorkgroups(numTriangles, 1, 1);
 
     computeIndicesPass.end();
@@ -334,7 +334,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsData.size, // 4x the size to account for extruded vertices
+        size: positionsData.size * 3,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -700,10 +700,10 @@ function get_shadow_matrix(n, l ,x) {
 
 
 
-
+    let temp_buffer = positionsBuffer;
 
     const stagingBuffer = device.createBuffer({
-        size: shadowVolumeIndicesBuffer.size,
+        size: temp_buffer.size,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
 
@@ -712,11 +712,11 @@ function get_shadow_matrix(n, l ,x) {
 
     // Copy the contents of the shadowVolumePositionsBuffer to the staging buffer
     commandEncoder2.copyBufferToBuffer(
-        shadowVolumeIndicesBuffer, // source buffer
+        temp_buffer, // source buffer
         0, // source offset
         stagingBuffer, // destination buffer
         0, // destination offset
-        shadowVolumeIndicesBuffer.size // size of the copy
+        temp_buffer.size // size of the copy
     );
 
     // Submit the commands
@@ -728,10 +728,10 @@ function get_shadow_matrix(n, l ,x) {
 
     // Get the mapped range and create a typed array
     const arrayBuffer = stagingBuffer.getMappedRange();
-    const float32Array = new Int32Array(arrayBuffer);
+    const float32Array = new Float32Array(arrayBuffer);
 
     // Log the contents to the console
-    //console.log(float32Array);
+    console.log(float32Array);
 
     // Unmap the buffer
     stagingBuffer.unmap();

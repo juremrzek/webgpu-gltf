@@ -21,25 +21,22 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     
 
-    let v0_4 = positions[indices[index + 0]];
-    let v1_4 = positions[indices[index + 1]];
-    let v2_4 = positions[indices[index + 2]];
+    outputIndices[index + 0] = indices[index + 0];
+    outputIndices[index + 1] = indices[index + 1];
+    outputIndices[index + 2] = indices[index + 2];
 
-    let v0_w = v0_4.w;
-    let v1_w = v1_4.w;
-    let v2_w = v2_4.w;
-
-    let v0 = v0_4.xyz;
-    let v1 = v1_4.xyz;
-    let v2 = v2_4.xyz;
+    let v0 = positions[index + 0];
+    let v1 = positions[index + 1];
+    let v2 = positions[index + 2];
 
     let l_pos = float3(100, 100, 100);
 
-    outputVertices[indices[index + 0]] = float4(v0, v0_w);
-    outputVertices[indices[index + 1]] = float4(v1, v1_w);
-    outputVertices[indices[index + 2]] = float4(v2, v2_w);
+    outputVertices[index + 0] = v0;
+    outputVertices[index + 1] = v1;
+    outputVertices[index + 2] = v2;
+    //outputVertices[index + 3] = v3;
 
-    let ns0 = cross(v1 - v0, v2 - v0);
+    /*let ns0 = cross(v1 - v0, v2 - v0);
     let ns1 = cross(v2 - v1, v0 - v1);
     let ns2 = cross(v0 - v2, v1 - v2);
 
@@ -47,21 +44,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let d1 = l_pos - v1;
     let d2 = l_pos - v2;
 
-    var faces_light = true;
-    if (!(dot(ns0, d0) > 0.0 || dot(ns1, d1) > 0.0 || dot(ns2, d2) > 0.0)) {
-        faces_light = false;
-    }
-
-    //let extrude_distance = 1000.0;
-    //let ev0 = v0 + normalize(v0 - l_pos) * extrude_distance;
-    //let ev1 = v1 + normalize(v1 - l_pos) * extrude_distance;
-    //let ev2 = v2 + normalize(v2 - l_pos) * extrude_distance;
-
-    outputIndices[index + 0] = indices[index + 0];
-    outputIndices[index + 1] = indices[index + 1];
-    outputIndices[index + 2] = indices[index + 2];
-
-
+    var faces_light = true;*/
 
     /*if(!(dot(ns0, d0) > 0 || dot(ns1, d1) > 0 || dot(ns2, d2) > 0)) {
 
@@ -74,7 +57,5 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
         let 
     }*/
-
-    //let vf0 = 
     
 }
