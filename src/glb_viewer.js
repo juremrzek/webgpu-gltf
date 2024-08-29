@@ -334,12 +334,12 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsData.size * 3,
+        size: positionsData.size * 6,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
     const shadowVolumeCountBuffer = device.createBuffer({
-        size: 4, // 4x the size to account for extruded vertices
+        size: 4,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
         mappedAtCreation: true,
     });
@@ -347,7 +347,7 @@ function get_shadow_matrix(n, l ,x) {
     shadowVolumeCountBuffer.unmap();
 
     const shadowVolumeIndicesBuffer = device.createBuffer({
-        size: computeIndicesBuffer.size, // 4x the size to account for extruded vertices
+        size: computeIndicesBuffer.size * 6,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -499,8 +499,8 @@ function get_shadow_matrix(n, l ,x) {
     bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
         'uint32',
         0);
-    bundleEncoder.drawIndexed(positions.count);
-    //bundleEncoder.draw(positions.count);
+    //bundleEncoder.drawIndexed(positions.count * 2);
+    bundleEncoder.draw(positions.count * 3);
     const secondRenderBundles = [bundleEncoder.finish()];
 
     /*const thirdRenderPassDesc = {
@@ -635,7 +635,7 @@ function get_shadow_matrix(n, l ,x) {
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup);
-        const numTriangles = positions.count;
+        const numTriangles = positions.count * 7;
         computePass.dispatchWorkgroups(numTriangles, 1, 1);
 
         computePass.end();
@@ -700,7 +700,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
 
-    let temp_buffer = positionsBuffer;
+    let temp_buffer = shadowVolumePositionsBuffer;
 
     const stagingBuffer = device.createBuffer({
         size: temp_buffer.size,
