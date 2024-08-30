@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_cube_no_walls.glb")
+            "assets/scene_regular_cube.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -222,10 +222,10 @@ function get_shadow_matrix(n, l ,x) {
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
 
-    const positions = glbFile.nodes[1].mesh.primitives[1].positions;
-    const positionsData = glbFile.nodes[1].mesh.primitives[1].positions.view.gpuBuffer
-    const normalsData = glbFile.nodes[1].mesh.primitives[1].normals.view.gpuBuffer
-    const indicesData = glbFile.nodes[1].mesh.primitives[1].indices.view.gpuBuffer
+    const positions = glbFile.nodes[1].mesh.primitives[0].positions;
+    const positionsData = glbFile.nodes[1].mesh.primitives[0].positions.view.gpuBuffer
+    const normalsData = glbFile.nodes[1].mesh.primitives[0].normals.view.gpuBuffer
+    const indicesData = glbFile.nodes[1].mesh.primitives[0].indices.view.gpuBuffer
     const modelMatrixData = glbFile.nodes[1].modelMatrix;
 
     const positionsBuffer = device.createBuffer({
@@ -323,7 +323,7 @@ function get_shadow_matrix(n, l ,x) {
     const computeIndicesPass = commandEncoderIndices.beginComputePass();
     computeIndicesPass.setPipeline(computeIndicesPipeline);
     computeIndicesPass.setBindGroup(0, computeIndicesBindGroup);
-    const numTriangles = positions.count * 3;
+    const numTriangles = positions.count * 7;
     computeIndicesPass.dispatchWorkgroups(numTriangles, 1, 1);
 
     computeIndicesPass.end();
@@ -334,7 +334,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsData.size * 6,
+        size: positionsData.size * 7,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -347,7 +347,7 @@ function get_shadow_matrix(n, l ,x) {
     shadowVolumeCountBuffer.unmap();
 
     const shadowVolumeIndicesBuffer = device.createBuffer({
-        size: computeIndicesBuffer.size * 6,
+        size: computeIndicesBuffer.size * 7,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -499,8 +499,8 @@ function get_shadow_matrix(n, l ,x) {
     bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
         'uint32',
         0);
-    //bundleEncoder.drawIndexed(positions.count * 2);
-    bundleEncoder.draw(positions.count * 3);
+    //bundleEncoder.drawIndexed(positions.count * 7);
+    bundleEncoder.draw(positions.count * 7);
     const secondRenderBundles = [bundleEncoder.finish()];
 
     /*const thirdRenderPassDesc = {
@@ -700,7 +700,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
 
-    let temp_buffer = shadowVolumePositionsBuffer;
+    let temp_buffer = shadowVolumeIndicesBuffer;
 
     const stagingBuffer = device.createBuffer({
         size: temp_buffer.size,
@@ -728,10 +728,10 @@ function get_shadow_matrix(n, l ,x) {
 
     // Get the mapped range and create a typed array
     const arrayBuffer = stagingBuffer.getMappedRange();
-    const float32Array = new Float32Array(arrayBuffer);
+    const float32Array = new Int32Array(arrayBuffer);
 
     // Log the contents to the console
-    console.log(float32Array);
+    console.log(Array.from(float32Array));
 
     // Unmap the buffer
     stagingBuffer.unmap();

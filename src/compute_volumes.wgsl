@@ -43,7 +43,7 @@ fn extrudeVertex(vertex: vec3f, light_pos: vec3f) -> vec3f {
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
-    let vertex_index = index * 4;
+    let vertex_index = index * 7;
 
     let l_pos = float3(100, -100, 50);
 
@@ -67,7 +67,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     setPosition(vertex_index + 4, v_1);
     setPosition(vertex_index + 5, v_2);
 
-    v_0 = v0;
+    v_0 = v1;
     v_1 = extrudeVertex(v1, l_pos);
     v_2 = extrudeVertex(v0, l_pos);
 
@@ -83,7 +83,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     setPosition(vertex_index + 10, v_1);
     setPosition(vertex_index + 11, v_2);
 
-    v_0 = v1;
+    v_0 = v2;
     v_1 = extrudeVertex(v2, l_pos);
     v_2 = extrudeVertex(v1, l_pos);
     
@@ -99,16 +99,16 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     setPosition(vertex_index + 16, v_1);
     setPosition(vertex_index + 17, v_2);
 
-    v_0 = v2;
-    v_1 = v0;
+    v_0 = v0;
+    v_1 = extrudeVertex(v0, l_pos);
     v_2 = extrudeVertex(v2, l_pos);
     
     setPosition(vertex_index + 18, v_0);
     setPosition(vertex_index + 19, v_1);
     setPosition(vertex_index + 20, v_2);
 
-    for (var i = 0u; i <= 20u; i = i+20u) {
-       outputIndices[i] = i; 
+    for (var i = 0u; i <= 20u; i = i+1u) {
+       outputIndices[vertex_index + i] = vertex_index + i; 
     }
 
     let ns0 = cross(v1 - v0, v2 - v0);
