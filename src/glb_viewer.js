@@ -169,7 +169,7 @@ function get_shadow_matrix(n, l ,x) {
             depthStoreOp: 'store',
             stencilLoadOp: 'clear',
             stencilLoadValue: 0,
-            stencilStoreOp: 'discard',
+            stencilStoreOp: 'store',
         }
     };
      
@@ -334,7 +334,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsData.size * 7,
+        size: positionsData.size * 14,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -347,7 +347,7 @@ function get_shadow_matrix(n, l ,x) {
     shadowVolumeCountBuffer.unmap();
 
     const shadowVolumeIndicesBuffer = device.createBuffer({
-        size: computeIndicesBuffer.size * 7,
+        size: computeIndicesBuffer.size * 14,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -430,43 +430,29 @@ function get_shadow_matrix(n, l ,x) {
             }],
         },
         primitive: {
-            cullMode: 'none',
+            topology: 'triangle-list',
+            cullMode: 'none'
         },
         depthStencil: {
-            depthWriteEnabled: false, // Don't write to depth buffer
-            depthCompare: 'always', // But do use depth test
             format: 'depth24plus-stencil8',
-            stencilFront: {
-                compare: 'always',
-                failOp: 'keep',
-                depthFailOp: 'decrement-wrap',
-                passOp: 'keep',
-            },
-            stencilBack: {
-                compare: 'always',
-                failOp: 'keep',
-                depthFailOp: 'increment-wrap',
-                passOp: 'keep',
-            },
-            stencilReadMask: 0xff,
-            stencilWriteMask: 0x00, // Do no writing to stencil buffer in this pass
+            depthWriteEnabled: true,
+            depthCompare: 'less-equal'
         },
     };
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
     const secondRenderPassDesc = {
         colorAttachments: [{
-            view: undefined,
             loadOp: "load",
             storeOp: "store"
         }],
         depthStencilAttachment: {
-            view: secondDepthTextureView,
+            view: firstDepthTextureView,
             depthLoadOp: "load",
-            depthLoadValue: 1.0,
+            //depthLoadValue: 1.0,
             depthStoreOp: "store",
             stencilLoadOp: "load",
-            stencilLoadValue: 0,
+            //stencilLoadValue: 0,
             stencilStoreOp: 'store',
         }
     };
@@ -499,8 +485,8 @@ function get_shadow_matrix(n, l ,x) {
     bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
         'uint32',
         0);
-    //bundleEncoder.drawIndexed(positions.count * 7);
-    bundleEncoder.draw(positions.count * 7);
+    bundleEncoder.drawIndexed(positions.count * 14);
+    //bundleEncoder.draw(positions.count * 7);
     const secondRenderBundles = [bundleEncoder.finish()];
 
     /*const thirdRenderPassDesc = {
@@ -731,7 +717,7 @@ function get_shadow_matrix(n, l ,x) {
     const float32Array = new Int32Array(arrayBuffer);
 
     // Log the contents to the console
-    console.log(Array.from(float32Array));
+    //console.log(Array.from(float32Array));
 
     // Unmap the buffer
     stagingBuffer.unmap();

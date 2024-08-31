@@ -24,7 +24,7 @@ fn first_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * vin.position;
     var light_direction = float3(normalize(float3(10, -10, 0)));
-    vout.intensity = max(-dot(light_direction, vin.normal), 0.0);
+    //vout.intensity = max(-dot(light_direction, vin.normal), 0.0);
     return vout;
 }
 
