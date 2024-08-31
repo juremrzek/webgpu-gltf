@@ -395,8 +395,8 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const volumeVertexBuffers = [{
-        arrayStride: 12,
-        attributes: [{format: 'float32x3', offset: 0, shaderLocation: 0}]
+        arrayStride: 16,
+        attributes: [{format: 'float32x4', offset: 0, shaderLocation: 0}]
     }];
 
     const secondPipelineLayout = device.createPipelineLayout({
