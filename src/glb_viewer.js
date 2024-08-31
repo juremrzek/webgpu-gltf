@@ -526,7 +526,7 @@ function get_shadow_matrix(n, l ,x) {
         },
         primitive: {
             topology: 'triangle-list',
-            //cullMode: 'back',
+            cullMode: 'back',
         },
         depthStencil: {
             format: 'depth24plus-stencil8',
@@ -547,6 +547,13 @@ function get_shadow_matrix(n, l ,x) {
     const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     const projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
+    const left = -40;
+    const right = 40;
+    const bottom = -40;
+    const top = 40;
+    const near = -500;
+    const ortho_matrix = mat4.ortho(mat4.create(), left, right, bottom, top, near, null);
+
     const controller = new Controller();
     controller.mousemove = function (prev, cur, evt) {
         if (evt.buttons == 1) {
@@ -607,9 +614,13 @@ function get_shadow_matrix(n, l ,x) {
 
         computePass.end();
 
+        device.queue.writeBuffer(projectionBuffer, 0, ortho_matrix);
+
         const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
+
+        device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
 
         const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
         thirdRenderPass.setStencilReference(0);
