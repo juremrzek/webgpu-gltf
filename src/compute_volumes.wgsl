@@ -45,9 +45,9 @@ fn extrudeVertex(vertex: vec4f, light_pos: vec4f) -> vec4f {
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
-    let vertex_index = index * 7;
+    let vertex_index = index * 4;
 
-    let l_pos = float4(100, -100, 50, 1);
+    let l_dir = float4(100, -100, 50, 1);
 
     let v0 = float4(getPosition(indices[index + 0]), 1);
     let v1 = float4(getPosition(indices[index + 1]), 1);
@@ -61,54 +61,31 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     //render sillhouettes
     let render_sillhouettes = true;
+    let infinite_vertex = float4(l_dir.xyz, 0);
     if (render_sillhouettes) {
         var v_0 = v0;
-        var v_1 = extrudeVertex(v0, l_pos);
-        var v_2 = v1;
+        var v_1 = v1;
+        var v_2 = infinite_vertex;
 
         setPosition(vertex_index + 3, v_0);
         setPosition(vertex_index + 4, v_1);
         setPosition(vertex_index + 5, v_2);
 
         v_0 = v1;
-        v_1 = extrudeVertex(v1, l_pos);
-        v_2 = extrudeVertex(v0, l_pos);
-
+        v_1 = v2;
+        v_2 = infinite_vertex;
+        
         setPosition(vertex_index + 6, v_0);
         setPosition(vertex_index + 7, v_1);
         setPosition(vertex_index + 8, v_2);
 
-        v_0 = v1;
-        v_1 = v2;
-        v_2 = extrudeVertex(v1, l_pos);
+        v_0 = v2;
+        v_1 = v0;
+        v_2 = infinite_vertex;
         
         setPosition(vertex_index + 9, v_0);
         setPosition(vertex_index + 10, v_1);
         setPosition(vertex_index + 11, v_2);
-
-        v_0 = v2;
-        v_1 = extrudeVertex(v2, l_pos);
-        v_2 = extrudeVertex(v1, l_pos);
-        
-        setPosition(vertex_index + 12, v_0);
-        setPosition(vertex_index + 13, v_1);
-        setPosition(vertex_index + 14, v_2);
-
-        v_0 = v2;
-        v_1 = v0;
-        v_2 = extrudeVertex(v2, l_pos);
-        
-        setPosition(vertex_index + 15, v_0);
-        setPosition(vertex_index + 16, v_1);
-        setPosition(vertex_index + 17, v_2);
-
-        v_0 = v0;
-        v_1 = extrudeVertex(v0, l_pos);
-        v_2 = extrudeVertex(v2, l_pos);
-        
-        setPosition(vertex_index + 18, v_0);
-        setPosition(vertex_index + 19, v_1);
-        setPosition(vertex_index + 20, v_2);
     }
 
     for (var i = 0u; i <= 20u; i = i+1u) {
@@ -119,16 +96,16 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     //let ns1 = cross(v2 - v1, v0 - v1);
     //let ns2 = cross(v0 - v2, v1 - v2);
 
-    let d0 = l_pos - v0;
-    let d1 = l_pos - v1;
-    let d2 = l_pos - v2;
+    //let d0 = l_pos - v0;
+    //let d1 = l_pos - v1;
+    //let d2 = l_pos - v2;
 
 
 
-    for (var i = 0; i < 3; i = i+1){
+    /*for (var i = 0; i < 3; i = i+1){
         let v0 = i * 2;
         let nb = (i * 2 + 1);
         let v1 = (i * 2 + 2) % 3;
-    }
+    }*/
     
 }

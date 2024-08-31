@@ -334,7 +334,7 @@ function get_shadow_matrix(n, l ,x) {
 
 
     const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsData.size * 14,
+        size: positionsData.size * 8,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -347,7 +347,7 @@ function get_shadow_matrix(n, l ,x) {
     shadowVolumeCountBuffer.unmap();
 
     const shadowVolumeIndicesBuffer = device.createBuffer({
-        size: computeIndicesBuffer.size * 14,
+        size: computeIndicesBuffer.size * 8,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -485,7 +485,7 @@ function get_shadow_matrix(n, l ,x) {
     bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
         'uint32',
         0);
-    bundleEncoder.drawIndexed(positions.count * 14);
+    bundleEncoder.drawIndexed(positions.count * 8);
     //bundleEncoder.draw(positions.count * 7);
     const secondRenderBundles = [bundleEncoder.finish()];
 
@@ -621,7 +621,7 @@ function get_shadow_matrix(n, l ,x) {
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup);
-        const numTriangles = positions.count * 7;
+        const numTriangles = positions.count * 4;
         computePass.dispatchWorkgroups(numTriangles, 1, 1);
 
         computePass.end();
