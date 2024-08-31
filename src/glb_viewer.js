@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_regular_cube.glb")
+            "assets/scene_cube_no_walls.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -44,6 +44,7 @@ function get_shadow_matrix(n, l ,x) {
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     const firstDepthTextureView = firstDepthTexture.createView();
+    //const thirdDepthTextureView = firstDepthTexture.createView();
 
     const secondDepthTexture = device.createTexture({
         size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
@@ -152,7 +153,6 @@ function get_shadow_matrix(n, l ,x) {
     const secondShaderModule = device.createShaderModule({code: secondShaders});
     const thirdShaderModule = device.createShaderModule({code: thirdShaders});
 
-    const commandEncoder = device.createCommandEncoder();
     const tempCommandEncoder = device.createCommandEncoder();
 
     const firstRenderPassDesc = {
@@ -168,7 +168,7 @@ function get_shadow_matrix(n, l ,x) {
             depthClearValue: 1,
             depthStoreOp: 'store',
             stencilLoadOp: 'clear',
-            stencilLoadValue: 0,
+            stencilClearValue: 0,
             stencilStoreOp: 'store',
         }
     };
@@ -410,49 +410,40 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: 'second_vertex_main',
             buffers: volumeVertexBuffers
         },
-        fragment: {
-            module: secondShaderModule,
-            entryPoint: 'second_fragment_main',
-            targets:[{
-                format: swapChainFormat,
-                blend: {
-                    color: {
-                        srcFactor: 'src-alpha',
-                        dstFactor: 'one-minus-src-alpha',
-                        operation: 'add'
-                    },
-                    alpha: {
-                        srcFactor: 'one',
-                        dstFactor: 'one-minus-src-alpha',
-                        operation: 'add'
-                    }
-                },
-            }],
-        },
         primitive: {
-            topology: 'triangle-list',
             cullMode: 'none'
         },
         depthStencil: {
+            depthWriteEnabled: false, // Don't write to depth buffer
+            depthCompare: 'less', // But do use depth test
             format: 'depth24plus-stencil8',
-            depthWriteEnabled: true,
-            depthCompare: 'less-equal'
+            stencilFront: {
+                compare: 'always',
+                failOp: 'keep',
+                depthFailOp: 'increment-wrap',
+                passOp: 'keep',
+            },
+            stencilBack: {
+                compare: 'always',
+                failOp: 'keep',
+                depthFailOp: 'decrement-wrap',
+                passOp: 'keep',
+            },
+            //stencilReadMask: 0xff,
+            //stencilWriteMask: 0xff,
         },
     };
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
     const secondRenderPassDesc = {
-        colorAttachments: [{
-            loadOp: "load",
-            storeOp: "store"
-        }],
+        colorAttachments: [],
         depthStencilAttachment: {
             view: firstDepthTextureView,
-            depthLoadOp: "load",
-            //depthLoadValue: 1.0,
-            depthStoreOp: "store",
-            stencilLoadOp: "load",
-            //stencilLoadValue: 0,
+            depthLoadOp: 'clear',
+            depthClearValue: 1,
+            depthStoreOp: 'store',
+            stencilLoadOp: 'clear',
+            stencilClearValue: 0,
             stencilStoreOp: 'store',
         }
     };
@@ -464,39 +455,35 @@ function get_shadow_matrix(n, l ,x) {
     //const secondRenderBundles = glbFile.getRenderBundle(device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
 
     const vertexCount = new Uint32Array(1);
-    console.log("ok")
-    console.log(shadowVolumePositionsBuffer)
-    console.log(positionsBuffer);
 
     const shadowVolumeVertexCountReadBuffer = device.createBuffer({
         size: vertexCount.byteLength,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
     
-    const bundleEncoder = device.createRenderBundleEncoder({
-        colorFormats: [swapChainFormat],
+    const secondBundleEncoder = device.createRenderBundleEncoder({
+        colorFormats: [],
         depthStencilFormat: 'depth24plus-stencil8',
     });
-    bundleEncoder.setPipeline(secondRenderPipeline);
-    bundleEncoder.setVertexBuffer(0, shadowVolumePositionsBuffer);
-    bundleEncoder.setBindGroup(0, viewParamsBindGroup);
+    secondBundleEncoder.setPipeline(secondRenderPipeline);
+    secondBundleEncoder.setVertexBuffer(0, shadowVolumePositionsBuffer);
+    secondBundleEncoder.setBindGroup(0, viewParamsBindGroup);
 
     // Draw the new triangle
-    bundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
+    secondBundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
         'uint32',
         0);
-    bundleEncoder.drawIndexed(positions.count * 8);
+    secondBundleEncoder.drawIndexed(positions.count * 8);
     //bundleEncoder.draw(positions.count * 7);
-    const secondRenderBundles = [bundleEncoder.finish()];
+    const secondRenderBundles = [secondBundleEncoder.finish()];
 
-    /*const thirdRenderPassDesc = {
+    const thirdRenderPassDesc = {
         colorAttachments: [{
-            view: colorTextureView,
             loadOp: 'load',
             storeOp: 'store',
         }],
         depthStencilAttachment: {
-            view: depthStencilTextureView,
+            view: firstDepthTextureView,
             depthLoadOp: 'load',
             depthStoreOp: 'store',
             stencilLoadOp: 'load',
@@ -510,40 +497,49 @@ function get_shadow_matrix(n, l ,x) {
     });
 
     const thirdPipelineDescriptor = {
+        label: "Third Pipeline",
+        layout: firstPipelineLayout,
         vertex: {
             module: thirdShaderModule,
             entryPoint: 'third_vertex_main',
+            buffers: vertexBuffers
         },
         fragment: {
             module: thirdShaderModule,
             entryPoint: 'third_fragment_main',
             targets: [{
-                format: 'bgra8unorm', // Assume the format of the color attachment
-                writeMask: GPUColorWrite.ALL, // Enable writing to the color buffer
+                format: swapChainFormat, 
+                blend: {
+                    color: {
+                        srcFactor: 'src-alpha',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add'
+                    },
+                    alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add'
+                    }
+                },
             }],
+            writeMask: GPUColorWrite.ALL,
         },
         primitive: {
-            cullMode: 'back', // Enable back-face culling
+            topology: 'triangle-list',
+            //cullMode: 'back',
         },
         depthStencil: {
-            depthWriteEnabled: false, // Don't write to depth buffer
-            depthCompare: 'less-equal', // Use depth test
-            stencilFront: {
-                compare: 'not-equal', // Stencil test: fragment is in shadow if stencil value is not zero
-                failOp: 'keep',
-                depthFailOp: 'keep',
-                passOp: 'keep',
-            },
-            stencilBack: {
-                compare: 'not-equal', // Stencil test: fragment is in shadow if stencil value is not zero
-                failOp: 'keep',
-                depthFailOp: 'keep',
-                passOp: 'keep',
-            },
-            stencilReadMask: 0xff,
-            stencilWriteMask: 0x00, // Do no writing to stencil buffer in this pass
+            format: 'depth24plus-stencil8',
+            depthWriteEnabled: false,
+            depthCompare: 'less-equal',
+            //stencilReadMask: 0xff,
+            //stencilWriteMask: 0xff,
         },
-    }*/
+    }
+
+    const thirdRenderPipeline = device.createRenderPipeline(thirdPipelineDescriptor);
+    const thirdRenderBundles = glbFile.buildRenderBundles(
+            device, viewParamsLayout, viewParamsBindGroup, null, null, thirdRenderPipeline, swapChainFormat);
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
@@ -586,33 +582,18 @@ function get_shadow_matrix(n, l ,x) {
     let numFrames = 0;
     let totalTimeMS = 0;
     let t = 1;
-    const render = async () => {
-        //t += 0.1;
-        const light_projection_matrix = mat4.create();
-        const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(50, 100, t), [0, 0, 0], [0, 1, 0]);
-        var fovy = Math.PI / 2
-        var aspect = canvas.width / canvas.height;
-        var near = 0.01
-        var f = 1.0 / Math.tan(fovy / 2)
-        var out = []
-        var eps = 1.0
-        mat4.perspective(projection_matrix, fovy, aspect, near, null);
-
-
-        const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
-
-        
+    const render = async () => {        
         const commandEncoder = device.createCommandEncoder();
 
-        let start = performance.now();
+        const start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
-        firstRenderPassDesc.colorAttachments[0].view = colorTextureView
-        secondRenderPassDesc.colorAttachments[0].view = colorTextureView
+        firstRenderPassDesc.colorAttachments[0].view = colorTextureView;
+        //secondRenderPassDesc.colorAttachments[0].view = colorTextureView
+        thirdRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
         device.queue.writeBuffer(viewBuffer, 0, view_matrix);
-        //device.queue.writeBuffer(lightViewProjBuffer, 0, light_view_projection_matrix);
 
         const firstRenderPass = commandEncoder.beginRenderPass(firstRenderPassDesc);
         firstRenderPass.executeBundles(firstRenderBundles);
@@ -626,17 +607,14 @@ function get_shadow_matrix(n, l ,x) {
 
         computePass.end();
 
-        //console.log(Math.floor(t))
-        //shadowVolumePositionsBuffer should be updated
-
-
-
-
-
-
         const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
+
+        const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
+        thirdRenderPass.setStencilReference(0);
+        thirdRenderPass.executeBundles(thirdRenderBundles);
+        thirdRenderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();
@@ -648,92 +626,9 @@ function get_shadow_matrix(n, l ,x) {
         );    
         device.queue.submit([computeCommandEncoder.finish()]);
         await shadowVolumeVertexCountReadBuffer.mapAsync(GPUMapMode.READ);
-        const vertexCountArray = new Uint32Array(shadowVolumeVertexCountReadBuffer.getMappedRange());
-        const shadowVolumeVertexCount = vertexCountArray[0];
         shadowVolumeVertexCountReadBuffer.unmap();
-    
-        //console.log("shadow volume vertex count:")
-        //console.log(shadowVolumeVertexCount);
-        //console.log(numTriangles)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    let temp_buffer = shadowVolumeIndicesBuffer;
-
-    const stagingBuffer = device.createBuffer({
-        size: temp_buffer.size,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    });
-
-    // Create a command encoder
-    const commandEncoder2 = device.createCommandEncoder();
-
-    // Copy the contents of the shadowVolumePositionsBuffer to the staging buffer
-    commandEncoder2.copyBufferToBuffer(
-        temp_buffer, // source buffer
-        0, // source offset
-        stagingBuffer, // destination buffer
-        0, // destination offset
-        temp_buffer.size // size of the copy
-    );
-
-    // Submit the commands
-    const commands2 = commandEncoder2.finish();
-    device.queue.submit([commands2]);
-
-    // Map the staging buffer to read its contents
-    await stagingBuffer.mapAsync(GPUMapMode.READ);
-
-    // Get the mapped range and create a typed array
-    const arrayBuffer = stagingBuffer.getMappedRange();
-    const float32Array = new Int32Array(arrayBuffer);
-
-    // Log the contents to the console
-    //console.log(Array.from(float32Array));
-
-    // Unmap the buffer
-    stagingBuffer.unmap();
-
-
-
-
-
-
-
-
-
-
-
-
-
+        
 
         const end = performance.now();
         numFrames += 1;

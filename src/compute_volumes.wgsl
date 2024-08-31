@@ -47,7 +47,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     let vertex_index = index * 4;
 
-    let l_dir = float4(100, -100, 50, 1);
+    let l_dir = float4(-100, -100, 50, 1);
 
     let v0 = float4(getPosition(indices[index + 0]), 1);
     let v1 = float4(getPosition(indices[index + 1]), 1);
@@ -63,9 +63,9 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let render_sillhouettes = true;
     let infinite_vertex = float4(l_dir.xyz, 0);
     if (render_sillhouettes) {
-        var v_0 = v0;
-        var v_1 = v1;
-        var v_2 = infinite_vertex;
+        var v_0 = viewMatrix.m * modelMatrix.m * v0;
+        var v_1 = viewMatrix.m * modelMatrix.m * v1;
+        var v_2 = viewMatrix.m * modelMatrix.m * infinite_vertex;
 
         setPosition(vertex_index + 3, v_0);
         setPosition(vertex_index + 4, v_1);
