@@ -54,6 +54,10 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     var v1 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 1]), 1);
     var v2 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 2]), 1);
 
+    v0 = v0 / v0.w;
+    v1 = v1 / v1.w;
+    v2 = v2 / v2.w;
+
     let normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
 
 
@@ -69,8 +73,6 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
         var v_0 = v0;
         var v_1 = v1;
         var v_2 = infinite_vertex;
-        v_0 = v_0 / v_0.w;
-        v_1 = v_1 / v_1.w;
 
         setPosition(vertex_index + 3, v_0);
         setPosition(vertex_index + 4, v_1);
@@ -79,8 +81,6 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
         v_0 = v1;
         v_1 = v2;
         v_2 = infinite_vertex;
-        v_0 = v_0 / v_0.w;
-        v_1 = v_1 / v_1.w;
         
         setPosition(vertex_index + 6, v_0);
         setPosition(vertex_index + 7, v_1);
@@ -89,8 +89,6 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
         v_0 = v2;
         v_1 = v0;
         v_2 = infinite_vertex;
-        v_0 = v_0 / v_0.w;
-        v_1 = v_1 / v_1.w;
         
         setPosition(vertex_index + 9, v_0);
         setPosition(vertex_index + 10, v_1);

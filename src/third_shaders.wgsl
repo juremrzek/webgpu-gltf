@@ -23,7 +23,7 @@ struct Mat4Uniform {
 @vertex
 fn third_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    vout.position = projection.m * view.m * model.m * float4(vin.position, 1.0);
+    vout.position = projection.m * view.m * model.m * float4(vin.position, 1);
     return vout;
 }
 
