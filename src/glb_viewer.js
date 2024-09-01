@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_debug.glb")
+            "assets/scene_brazier.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -196,6 +196,14 @@ function get_shadow_matrix(n, l ,x) {
         size: indicesData.size,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDEX
     });
+    const inverse_transpose = mat4.create();
+    mat4.invert(inverse_transpose, modelMatrixData);
+    mat4.transpose(inverse_transpose, inverse_transpose);
+
+    const inverseTransposeBuffer = device.createBuffer(
+        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
+    new Float32Array(inverseTransposeBuffer.getMappedRange()).set(inverse_transpose);
+    inverseTransposeBuffer.unmap();
 
     // Copy data from the original buffer to the new buffer
     tempCommandEncoder.copyBufferToBuffer(
@@ -309,12 +317,13 @@ function get_shadow_matrix(n, l ,x) {
         entries: [
             { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // model
             { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // view
-            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // positions buffer (input)
-            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // normals buffer (input)
-            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // index buffer (input)
-            { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
-            { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
-            { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // inverse_transpose
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // positions buffer (input)
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // normals buffer (input)
+            { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // index buffer (input)
+            { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
+            { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
+            { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
         ],
     });
 
@@ -323,12 +332,13 @@ function get_shadow_matrix(n, l ,x) {
         entries: [
             { binding: 0, resource: { buffer: modelBuffer } },
             { binding: 1, resource: { buffer: viewBuffer } },
-            { binding: 2, resource: { buffer: positionsBuffer } },
-            { binding: 3, resource: { buffer: normalsBuffer } },
-            { binding: 4, resource: { buffer: computeIndicesBuffer } },
-            { binding: 5, resource: { buffer: shadowVolumePositionsBuffer } },
-            { binding: 6, resource: { buffer: shadowVolumeCountBuffer } },
-            { binding: 7, resource: { buffer: shadowVolumeIndicesBuffer } },
+            { binding: 2, resource: { buffer: inverseTransposeBuffer } },
+            { binding: 3, resource: { buffer: positionsBuffer } },
+            { binding: 4, resource: { buffer: normalsBuffer } },
+            { binding: 5, resource: { buffer: computeIndicesBuffer } },
+            { binding: 6, resource: { buffer: shadowVolumePositionsBuffer } },
+            { binding: 7, resource: { buffer: shadowVolumeCountBuffer } },
+            { binding: 8, resource: { buffer: shadowVolumeIndicesBuffer } },
         ],
     });
 
@@ -377,7 +387,7 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: 'second_vertex_main',
             buffers: volumeVertexBuffers
         },
-        /*fragment: {
+        fragment: {
             module: secondShaderModule,
             entryPoint: 'second_fragment_main',
             targets: [{
@@ -396,13 +406,13 @@ function get_shadow_matrix(n, l ,x) {
                     writeMask: GPUColorWrite.ALL,
                 }
             }],
-        },*/
+        },
         primitive: {
             cullMode: 'none'
         },
         depthStencil: {
             depthWriteEnabled: false, // Don't write to depth buffer
-            depthCompare: 'less', // But do use depth test
+            depthCompare: 'greater', // But do use depth test
             format: 'depth24plus-stencil8',
             stencilFront: {
                 compare: 'always',
@@ -423,7 +433,10 @@ function get_shadow_matrix(n, l ,x) {
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
     const secondRenderPassDesc = {
-        colorAttachments: [],
+        colorAttachments: [{
+            loadOp: 'load',
+            storeOp: 'store'
+        }],
         depthStencilAttachment: {
             view: firstDepthTextureView,
             depthLoadOp: 'load',
@@ -442,7 +455,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     
     const secondBundleEncoder = device.createRenderBundleEncoder({
-        colorFormats: [],
+        colorFormats: [swapChainFormat],
         depthStencilFormat: 'depth24plus-stencil8',
     });
     secondBundleEncoder.setPipeline(secondRenderPipeline);
@@ -513,7 +526,7 @@ function get_shadow_matrix(n, l ,x) {
             depthWriteEnabled: false,
             depthCompare: 'less-equal',
             stencilFront: {
-                compare: 'not-equal',
+                compare: 'equal',
                 failOp: 'keep',
                 depthFailOp: 'keep',
                 passOp: 'keep',
@@ -581,7 +594,7 @@ function get_shadow_matrix(n, l ,x) {
         const start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         firstRenderPassDesc.colorAttachments[0].view = colorTextureView;
-        //secondRenderPassDesc.colorAttachments[0].view = colorTextureView
+        secondRenderPassDesc.colorAttachments[0].view = colorTextureView
         thirdRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
         const view_matrix = camera.camera;

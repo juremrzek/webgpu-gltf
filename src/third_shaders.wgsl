@@ -9,6 +9,7 @@ struct VertexInput {
 }
 struct VertexOutput {
     @builtin(position) position: float4,
+    @location(1) brightness: float
 }
 struct Mat4Uniform {
     m: mat4x4<f32>
@@ -16,14 +17,17 @@ struct Mat4Uniform {
 
 @group(0) @binding(0) var<uniform> projection: Mat4Uniform;
 @group(0) @binding(1) var<uniform> view: Mat4Uniform;
-@group(0) @binding(2) var<uniform> light_view_projection: Mat4Uniform;
 @group(1) @binding(0) var<uniform> model: Mat4Uniform;
+@group(1) @binding(1) var<uniform> inverse_transpose: Mat4Uniform;
 @group(1) @binding(2) var<uniform> node_id: u32;
 
 @vertex
 fn third_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1);
+    var light_direction = float4(normalize(float3(-100, 100, 50)), 1);
+    var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
+    vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
     return vout;
 }
 
@@ -38,8 +42,8 @@ struct MaterialParams {
 
 @fragment
 fn third_fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    //var color = material.base_color_factor.xyz;
-    //return float4((color * 0.4) + (color * fin.intensity * 0.6), 1);
+    var color = material.base_color_factor.xyz;
+    return float4((color * 0.3) + (color * fin.brightness * 0.7), 1);
     //return material.base_color_factor;
-    return float4(0, 0, 1, 1);
+    //return float4(0, 0, 1, 1);
 }

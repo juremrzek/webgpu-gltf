@@ -12,14 +12,15 @@ struct Vertex {
     _padding: f32
 }
 
-@group(0) @binding(0) var<uniform> modelMatrix: Mat4Uniform;
-@group(0) @binding(1) var<uniform> viewMatrix: Mat4Uniform;
-@group(0) @binding(2) var<storage, read> positions: array<f32>;
-@group(0) @binding(3) var<storage, read> normals: array<f32>;
-@group(0) @binding(4) var<storage, read> indices: array<u32>;
-@group(0) @binding(5) var<storage, read_write> outputVertices: array<f32>; 
-@group(0) @binding(6) var<storage, read_write> outputVertexCount: atomic<u32>;
-@group(0) @binding(7) var<storage, read_write> outputIndices: array<u32>;
+@group(0) @binding(0) var<uniform> model: Mat4Uniform;
+@group(0) @binding(1) var<uniform> view: Mat4Uniform;
+@group(0) @binding(2) var<uniform> inverseTranspose: Mat4Uniform;
+@group(0) @binding(3) var<storage, read> positions: array<f32>;
+@group(0) @binding(4) var<storage, read> normals: array<f32>;
+@group(0) @binding(5) var<storage, read> indices: array<u32>;
+@group(0) @binding(6) var<storage, read_write> outputVertices: array<f32>; 
+@group(0) @binding(7) var<storage, read_write> outputVertexCount: atomic<u32>;
+@group(0) @binding(8) var<storage, read_write> outputIndices: array<u32>;
 
 fn getPosition(index: u32) -> float3 {
   let offset = index * 3;
@@ -48,16 +49,23 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     let vertex_index = index * 3;
 
-    let l_dir = float4(-100, -100, 50, 1);
+    let l_dir = normalize(float4(-100, -100, 50, 1));
 
-    var v0 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 0]), 1);
-    var v1 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 1]), 1);
-    var v2 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 2]), 1);
-    let infinite_vertex = viewMatrix.m * modelMatrix.m * float4(l_dir.xyz, 0);
+    var v0 = float4(getPosition(indices[index + 0]), 1);
+    var v1 = float4(getPosition(indices[index + 1]), 1);
+    var v2 = float4(getPosition(indices[index + 2]), 1);
+    var infinite_vertex = float4(l_dir.xyz, 0);
 
     let normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
+    let transformed_normal = normalize((inverseTranspose.m * float4(normal, 1)).xyz);
+    v1 = view.m * model.m * v1;
+    v2 = view.m * model.m * v2;
+    v0 = view.m * model.m * v0;
+    infinite_vertex = view.m * model.m * infinite_vertex;
+
+
     var facing_light = false;
-    if dot(normal, l_dir.xyz) < 0.0 {
+    if dot(transformed_normal, l_dir.xyz) < 0.0 {
         facing_light = true;
     }
 

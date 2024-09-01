@@ -23,7 +23,6 @@ struct Mat4Uniform {
 fn first_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1);
-    var light_direction = float3(normalize(float3(10, -10, 0)));
     return vout;
 }
 
