@@ -377,6 +377,26 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: 'second_vertex_main',
             buffers: volumeVertexBuffers
         },
+        fragment: {
+            module: secondShaderModule,
+            entryPoint: 'second_fragment_main',
+            targets: [{
+                format: swapChainFormat,
+                blend: {
+                    color: {
+                        srcFactor: 'src-alpha',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                    alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                    writeMask: GPUColorWrite.ALL,
+                }
+            }],
+        },
         primitive: {
             cullMode: 'none'
         },
@@ -403,7 +423,10 @@ function get_shadow_matrix(n, l ,x) {
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
     const secondRenderPassDesc = {
-        colorAttachments: [],
+        colorAttachments: [{
+            loadOp: "load",
+            storeOp: "store"
+        }],
         depthStencilAttachment: {
             view: firstDepthTextureView,
             depthLoadOp: 'load',
@@ -422,7 +445,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     
     const secondBundleEncoder = device.createRenderBundleEncoder({
-        colorFormats: [],
+        colorFormats: [swapChainFormat],
         depthStencilFormat: 'depth24plus-stencil8',
     });
     secondBundleEncoder.setPipeline(secondRenderPipeline);
@@ -561,7 +584,7 @@ function get_shadow_matrix(n, l ,x) {
         const start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         firstRenderPassDesc.colorAttachments[0].view = colorTextureView;
-        //secondRenderPassDesc.colorAttachments[0].view = colorTextureView
+        secondRenderPassDesc.colorAttachments[0].view = colorTextureView
         thirdRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
         const view_matrix = camera.camera;
@@ -585,10 +608,10 @@ function get_shadow_matrix(n, l ,x) {
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
 
-        const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
+        /*const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
         thirdRenderPass.setStencilReference(0);
         thirdRenderPass.executeBundles(thirdRenderBundles);
-        thirdRenderPass.end();
+        thirdRenderPass.end();*/
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();

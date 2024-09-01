@@ -23,3 +23,8 @@ fn second_vertex_main(vin: VertexInput) -> VertexOutput {
     vout.position = projection.m * vin.position;
     return vout;
 }
+
+@fragment
+fn second_fragment_main(fin: VertexOutput) -> @location(0) float4 {
+    return float4(1, 1, 0, 1);
+}

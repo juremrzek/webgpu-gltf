@@ -53,10 +53,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     var v0 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 0]), 1);
     var v1 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 1]), 1);
     var v2 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 2]), 1);
-
-    v0 = v0 / v0.w;
-    v1 = v1 / v1.w;
-    v2 = v2 / v2.w;
+    let infinite_vertex = viewMatrix.m * modelMatrix.m * float4(l_dir.xyz, 0);
 
     let normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
 
@@ -68,7 +65,6 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     //render sillhouettes
     let render_sillhouettes = true;
-    let infinite_vertex = float4(l_dir.xyz, 0);
     if (render_sillhouettes) {
         var v_0 = v0;
         var v_1 = v1;
