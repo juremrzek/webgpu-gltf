@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_regular_cube.glb")
+            "assets/scene_debug.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -377,7 +377,7 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: 'second_vertex_main',
             buffers: volumeVertexBuffers
         },
-        fragment: {
+        /*fragment: {
             module: secondShaderModule,
             entryPoint: 'second_fragment_main',
             targets: [{
@@ -396,12 +396,12 @@ function get_shadow_matrix(n, l ,x) {
                     writeMask: GPUColorWrite.ALL,
                 }
             }],
-        },
+        },*/
         primitive: {
             cullMode: 'none'
         },
         depthStencil: {
-            depthWriteEnabled: true, // Don't write to depth buffer
+            depthWriteEnabled: false, // Don't write to depth buffer
             depthCompare: 'less', // But do use depth test
             format: 'depth24plus-stencil8',
             stencilFront: {
@@ -423,10 +423,7 @@ function get_shadow_matrix(n, l ,x) {
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
 
     const secondRenderPassDesc = {
-        colorAttachments: [{
-            loadOp: "load",
-            storeOp: "store"
-        }],
+        colorAttachments: [],
         depthStencilAttachment: {
             view: firstDepthTextureView,
             depthLoadOp: 'load',
@@ -445,7 +442,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     
     const secondBundleEncoder = device.createRenderBundleEncoder({
-        colorFormats: [swapChainFormat],
+        colorFormats: [],
         depthStencilFormat: 'depth24plus-stencil8',
     });
     secondBundleEncoder.setPipeline(secondRenderPipeline);
@@ -516,7 +513,7 @@ function get_shadow_matrix(n, l ,x) {
             depthWriteEnabled: false,
             depthCompare: 'less-equal',
             stencilFront: {
-                compare: 'equal',
+                compare: 'not-equal',
                 failOp: 'keep',
                 depthFailOp: 'keep',
                 passOp: 'keep',
@@ -584,7 +581,7 @@ function get_shadow_matrix(n, l ,x) {
         const start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         firstRenderPassDesc.colorAttachments[0].view = colorTextureView;
-        secondRenderPassDesc.colorAttachments[0].view = colorTextureView
+        //secondRenderPassDesc.colorAttachments[0].view = colorTextureView
         thirdRenderPassDesc.colorAttachments[0].view = colorTextureView;
 
         const view_matrix = camera.camera;
@@ -608,10 +605,10 @@ function get_shadow_matrix(n, l ,x) {
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
 
-        /*const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
+        const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
         thirdRenderPass.setStencilReference(0);
         thirdRenderPass.executeBundles(thirdRenderBundles);
-        thirdRenderPass.end();*/
+        thirdRenderPass.end();
 
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();

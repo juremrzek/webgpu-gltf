@@ -24,7 +24,7 @@ fn second_vertex_main(vin: VertexInput) -> VertexOutput {
     return vout;
 }
 
-@fragment
+@fragment //only for debugging purposes, we don't draw volumes
 fn second_fragment_main(fin: VertexOutput) -> @location(0) float4 {
     return float4(1, 1, 0, 1);
 }
