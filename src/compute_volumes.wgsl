@@ -28,6 +28,13 @@ fn getPosition(index: u32) -> float3 {
                positions[offset + 2]);
 }
 
+fn getNormal(index: u32) -> float3 {
+  let offset = index * 3;
+  return vec3f(normals[offset + 0],
+               normals[offset + 1],
+               normals[offset + 2]);
+}
+
 fn setPosition(index: u32, value: float4) {
   let offset = index * 4;
   outputVertices[offset + 0] = value.x;
@@ -36,36 +43,34 @@ fn setPosition(index: u32, value: float4) {
   outputVertices[offset + 3] = value.w;
 }
 
-fn extrudeVertex(vertex: vec4f, light_pos: vec4f) -> vec4f {
-    let direction = normalize(vertex - light_pos);
-    let out = vertex - direction * 100;
-    return out/out.w;
-}
-
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
-    let vertex_index = index * 4;
+    let vertex_index = index * 3;
 
     let l_dir = float4(-100, -100, 50, 1);
 
-    let v0 = float4(getPosition(indices[index + 0]), 1);
-    let v1 = float4(getPosition(indices[index + 1]), 1);
-    let v2 = float4(getPosition(indices[index + 2]), 1);
+    var v0 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 0]), 1);
+    var v1 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 1]), 1);
+    var v2 = viewMatrix.m * modelMatrix.m * float4(getPosition(indices[index + 2]), 1);
+
+    let normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
+
+
 
     //render shadow caps
 
-    setPosition(vertex_index + 0, v0);
-    setPosition(vertex_index + 1, v1);
-    setPosition(vertex_index + 2, v2);
+
 
     //render sillhouettes
     let render_sillhouettes = true;
     let infinite_vertex = float4(l_dir.xyz, 0);
     if (render_sillhouettes) {
-        var v_0 = viewMatrix.m * modelMatrix.m * v0;
-        var v_1 = viewMatrix.m * modelMatrix.m * v1;
-        var v_2 = viewMatrix.m * modelMatrix.m * infinite_vertex;
+        var v_0 = v0;
+        var v_1 = v1;
+        var v_2 = infinite_vertex;
+        v_0 = v_0 / v_0.w;
+        v_1 = v_1 / v_1.w;
 
         setPosition(vertex_index + 3, v_0);
         setPosition(vertex_index + 4, v_1);
@@ -74,6 +79,8 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
         v_0 = v1;
         v_1 = v2;
         v_2 = infinite_vertex;
+        v_0 = v_0 / v_0.w;
+        v_1 = v_1 / v_1.w;
         
         setPosition(vertex_index + 6, v_0);
         setPosition(vertex_index + 7, v_1);
@@ -82,13 +89,15 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
         v_0 = v2;
         v_1 = v0;
         v_2 = infinite_vertex;
+        v_0 = v_0 / v_0.w;
+        v_1 = v_1 / v_1.w;
         
         setPosition(vertex_index + 9, v_0);
         setPosition(vertex_index + 10, v_1);
         setPosition(vertex_index + 11, v_2);
     }
 
-    for (var i = 0u; i <= 20u; i = i+1u) {
+    for (var i = 0u; i <= 9u; i = i+1u) {
        outputIndices[vertex_index + i] = vertex_index + i; 
     }
 

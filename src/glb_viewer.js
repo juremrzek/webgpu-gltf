@@ -73,51 +73,6 @@ function get_shadow_matrix(n, l ,x) {
         ]
     });
 
-    /*const mapRenderLayout = device.createBindGroupLayout({
-        entries: [
-            {
-                binding: 0, 
-                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                buffer: { type: 'uniform' }
-            },
-            {
-                binding: 1,
-                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                texture: { sampleType: 'depth'},
-            },
-            {
-                binding: 2,
-                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                sampler: { type: 'comparison' },
-            }
-        ]
-    });*/
-
-    const lightViewProjBuffer = device.createBuffer(
-        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-    /*const mapBindGroup = device.createBindGroup({
-        layout: mapRenderLayout, 
-        entries: [
-            {
-                binding: 0,
-                resource: {
-                buffer: lightViewProjBuffer,
-                },
-            },
-            {
-                binding: 1,
-                resource: firstDepthTextureView,
-            },
-            {
-                binding: 2,
-                resource: device.createSampler({
-                    compare: 'less',
-                }),
-            },
-            ],
-        }
-    );*/
-
     const projectionBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
     const viewBuffer = device.createBuffer(
@@ -133,10 +88,6 @@ function get_shadow_matrix(n, l ,x) {
             {binding: 2, resource: {buffer:modelBuffer}},
         ]}
     );
-
-    const primitive = {
-        topology: 'triangle-list',
-    };
 
     const vertexBuffers = [{
         arrayStride: 12, 
@@ -349,7 +300,7 @@ function get_shadow_matrix(n, l ,x) {
     shadowVolumeCountBuffer.unmap();
 
     const shadowVolumeIndicesBuffer = device.createBuffer({
-        size: computeIndicesBuffer.size * 8,
+        size: computeIndicesBuffer.size * 6,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
@@ -393,17 +344,31 @@ function get_shadow_matrix(n, l ,x) {
         }
     });
 
+    const secondProjectionBuffer = device.createBuffer(
+        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
 
+    const secondViewParamsLayout = device.createBindGroupLayout({
+        entries: [
+            {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
+            {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
+            {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
+        ]
+    });
+    const secondViewParamsBindGroup = device.createBindGroup(
+        {layout: viewParamsLayout, entries: [
+            {binding: 0, resource: {buffer: secondProjectionBuffer}},
+            {binding: 1, resource: {buffer: viewBuffer}},
+            {binding: 2, resource: {buffer: modelBuffer}},
+        ]}
+    );
 
-
+    const secondPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [secondViewParamsLayout]
+    });
     const volumeVertexBuffers = [{
         arrayStride: 16,
         attributes: [{format: 'float32x4', offset: 0, shaderLocation: 0}]
     }];
-
-    const secondPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [viewParamsLayout]
-    });
     const secondPipelineDescriptor = {
         label: 'Second Pipeline',
         layout: secondPipelineLayout,
@@ -416,7 +381,7 @@ function get_shadow_matrix(n, l ,x) {
             cullMode: 'none'
         },
         depthStencil: {
-            depthWriteEnabled: false, // Don't write to depth buffer
+            depthWriteEnabled: true, // Don't write to depth buffer
             depthCompare: 'less', // But do use depth test
             format: 'depth24plus-stencil8',
             stencilFront: {
@@ -449,12 +414,6 @@ function get_shadow_matrix(n, l ,x) {
         }
     };
     
-    //const secondRenderBundles = glbFile.buildRenderBundles(
-    //        device, viewParamsLayout, viewParamsBindGroup, null, null, secondRenderPipeline, swapChainFormat);
-    //const secondRenderBundles = glbFile.buildVolumeRenderBundles(
-        //device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
-    //const secondRenderBundles = glbFile.getRenderBundle(device, viewParamsLayout, viewParamsBindGroup, secondRenderPipeline, swapChainFormat);
-
     const vertexCount = new Uint32Array(1);
 
     const shadowVolumeVertexCountReadBuffer = device.createBuffer({
@@ -468,13 +427,13 @@ function get_shadow_matrix(n, l ,x) {
     });
     secondBundleEncoder.setPipeline(secondRenderPipeline);
     secondBundleEncoder.setVertexBuffer(0, shadowVolumePositionsBuffer);
-    secondBundleEncoder.setBindGroup(0, viewParamsBindGroup);
+    secondBundleEncoder.setBindGroup(0, secondViewParamsBindGroup);
 
     // Draw the new triangle
     secondBundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
         'uint32',
         0);
-    secondBundleEncoder.drawIndexed(positions.count * 8);
+    secondBundleEncoder.drawIndexed(positions.count * 6);
     //bundleEncoder.draw(positions.count * 7);
     const secondRenderBundles = [secondBundleEncoder.finish()];
 
@@ -499,7 +458,7 @@ function get_shadow_matrix(n, l ,x) {
 
     const thirdPipelineDescriptor = {
         label: "Third Pipeline",
-        layout: firstPipelineLayout,
+        layout: thirdPipelineLayout,
         vertex: {
             module: thirdShaderModule,
             entryPoint: 'third_vertex_main',
@@ -539,12 +498,6 @@ function get_shadow_matrix(n, l ,x) {
                 depthFailOp: 'keep',
                 passOp: 'keep',
             },
-            stencilBack: {
-                compare: 'equal',
-                failOp: 'keep',
-                depthFailOp: 'keep',
-                passOp: 'keep',
-            },
             stencilReadMask: 0xFF,
             stencilWriteMask: 0xFF,
         },
@@ -560,11 +513,11 @@ function get_shadow_matrix(n, l ,x) {
     const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     const projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
-    const left = -20;
-    const right = 20;
-    const bottom = -20;
-    const top = 20;
-    const near = -100;
+    const left = -10;
+    const right = 10;
+    const bottom = -10;
+    const top = 10;
+    const near = -1000000;
     const ortho_matrix = mat4.ortho(mat4.create(), left, right, bottom, top, near, null);
 
     const controller = new Controller();
@@ -614,6 +567,7 @@ function get_shadow_matrix(n, l ,x) {
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
         device.queue.writeBuffer(viewBuffer, 0, view_matrix);
+        device.queue.writeBuffer(secondProjectionBuffer, 0, projection_matrix);
 
         const firstRenderPass = commandEncoder.beginRenderPass(firstRenderPassDesc);
         firstRenderPass.executeBundles(firstRenderBundles);
@@ -622,18 +576,14 @@ function get_shadow_matrix(n, l ,x) {
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup);
-        const numTriangles = positions.count * 4;
+        const numTriangles = positions.count * 6;
         computePass.dispatchWorkgroups(numTriangles, 1, 1);
 
         computePass.end();
 
-        device.queue.writeBuffer(projectionBuffer, 0, ortho_matrix);
-
         const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
-
-        device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
 
         const thirdRenderPass = commandEncoder.beginRenderPass(thirdRenderPassDesc);
         thirdRenderPass.setStencilReference(0);
