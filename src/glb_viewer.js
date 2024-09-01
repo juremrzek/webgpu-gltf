@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_cube_no_walls.glb")
+            "assets/scene_regular_cube.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -213,7 +213,9 @@ function get_shadow_matrix(n, l ,x) {
         depthStencil: {
             format: 'depth24plus-stencil8',
             depthWriteEnabled: true,
-            depthCompare: 'less-equal'
+            depthCompare: 'less-equal',
+            stencilFront: null,
+            stencilBack: null
         },
     };
 
@@ -429,8 +431,8 @@ function get_shadow_matrix(n, l ,x) {
                 depthFailOp: 'decrement-wrap',
                 passOp: 'keep',
             },
-            //stencilReadMask: 0xff,
-            //stencilWriteMask: 0xff,
+            stencilReadMask: 0xFF,
+            stencilWriteMask: 0xFF,
         },
     };
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
@@ -439,8 +441,7 @@ function get_shadow_matrix(n, l ,x) {
         colorAttachments: [],
         depthStencilAttachment: {
             view: firstDepthTextureView,
-            depthLoadOp: 'clear',
-            depthClearValue: 1,
+            depthLoadOp: 'load',
             depthStoreOp: 'store',
             stencilLoadOp: 'clear',
             stencilClearValue: 0,
@@ -532,8 +533,20 @@ function get_shadow_matrix(n, l ,x) {
             format: 'depth24plus-stencil8',
             depthWriteEnabled: false,
             depthCompare: 'less-equal',
-            //stencilReadMask: 0xff,
-            //stencilWriteMask: 0xff,
+            stencilFront: {
+                compare: 'equal',
+                failOp: 'keep',
+                depthFailOp: 'keep',
+                passOp: 'keep',
+            },
+            stencilBack: {
+                compare: 'equal',
+                failOp: 'keep',
+                depthFailOp: 'keep',
+                passOp: 'keep',
+            },
+            stencilReadMask: 0xFF,
+            stencilWriteMask: 0xFF,
         },
     }
 
@@ -547,11 +560,11 @@ function get_shadow_matrix(n, l ,x) {
     const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     const projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
-    const left = -40;
-    const right = 40;
-    const bottom = -40;
-    const top = 40;
-    const near = -500;
+    const left = -20;
+    const right = 20;
+    const bottom = -20;
+    const top = 20;
+    const near = -100;
     const ortho_matrix = mat4.ortho(mat4.create(), left, right, bottom, top, near, null);
 
     const controller = new Controller();
