@@ -5,7 +5,6 @@ alias float = f32;
 
 struct VertexInput {
     @location(0) position: float4,
-    //@location(1) normal: float3,
 }
 struct VertexOutput {
     @builtin(position) position: float4,
