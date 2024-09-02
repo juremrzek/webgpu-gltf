@@ -19,7 +19,7 @@ struct Mat4Uniform {
 @vertex
 fn second_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    vout.position = projection.m * vin.position;
+    vout.position = projection.m * view.m * model.m * vin.position;
     return vout;
 }
 

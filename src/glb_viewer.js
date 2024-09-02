@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_brazier.glb")
+            "assets/scene_final.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -175,11 +175,11 @@ function get_shadow_matrix(n, l ,x) {
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
 
-    const positions = glbFile.nodes[1].mesh.primitives[0].positions;
-    const positionsData = glbFile.nodes[1].mesh.primitives[0].positions.view.gpuBuffer
-    const normalsData = glbFile.nodes[1].mesh.primitives[0].normals.view.gpuBuffer
-    const indicesData = glbFile.nodes[1].mesh.primitives[0].indices.view.gpuBuffer
-    const modelMatrixData = glbFile.nodes[1].modelMatrix;
+    const positions = glbFile.nodes[8].mesh.primitives[0].positions;
+    const positionsData = glbFile.nodes[8].mesh.primitives[0].positions.view.gpuBuffer
+    const normalsData = glbFile.nodes[8].mesh.primitives[0].normals.view.gpuBuffer
+    const indicesData = glbFile.nodes[8].mesh.primitives[0].indices.view.gpuBuffer
+    const modelMatrixData = glbFile.nodes[8].modelMatrix;
 
     const positionsBuffer = device.createBuffer({
         label: "positions for volumes",
@@ -315,30 +315,22 @@ function get_shadow_matrix(n, l ,x) {
 
     const computeBindGroupLayout = device.createBindGroupLayout({
         entries: [
-            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // model
-            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // view
-            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // inverse_transpose
-            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // positions buffer (input)
-            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // normals buffer (input)
-            { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // index buffer (input)
-            { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
-            { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Atomic shadow volume vertex count buffer
-            { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } }, // inverse_transpose
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // positions buffer (input)
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // index buffer (input)
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume indices buffer (out)
         ],
     });
 
     const computeBindGroup = device.createBindGroup({
         layout: computeBindGroupLayout,
         entries: [
-            { binding: 0, resource: { buffer: modelBuffer } },
-            { binding: 1, resource: { buffer: viewBuffer } },
-            { binding: 2, resource: { buffer: inverseTransposeBuffer } },
-            { binding: 3, resource: { buffer: positionsBuffer } },
-            { binding: 4, resource: { buffer: normalsBuffer } },
-            { binding: 5, resource: { buffer: computeIndicesBuffer } },
-            { binding: 6, resource: { buffer: shadowVolumePositionsBuffer } },
-            { binding: 7, resource: { buffer: shadowVolumeCountBuffer } },
-            { binding: 8, resource: { buffer: shadowVolumeIndicesBuffer } },
+            { binding: 0, resource: { buffer: inverseTransposeBuffer } },
+            { binding: 1, resource: { buffer: positionsBuffer } },
+            { binding: 2, resource: { buffer: computeIndicesBuffer } },
+            { binding: 3, resource: { buffer: shadowVolumePositionsBuffer } },
+            { binding: 4, resource: { buffer: shadowVolumeIndicesBuffer } },
         ],
     });
 
