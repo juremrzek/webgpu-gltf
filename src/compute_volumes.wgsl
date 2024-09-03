@@ -28,12 +28,12 @@ fn setPosition(index: u32, value: float4) {
   outputVertices[offset + 3] = value.w;
 }
 
-@compute @workgroup_size(1)
+@compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     let vertex_index = index * 3;
 
-    let l_dir = normalize(float3(-10, 5, 5));
+    let l_dir = normalize(float3(-10, -5, 5));
 
     var v0 = float4(getPosition(indices[index + 0]), 1);
     var v1 = float4(getPosition(indices[index + 1]), 1);
@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let transformed_normal = normalize((inverseTranspose.m * float4(normal, 1)).xyz);
 
     var facing_light = false;
-    if dot(normal, l_dir.xyz) > 0.0 {
+    if dot(transformed_normal, l_dir.xyz) > 0.0 {
         facing_light = true;
     }
 

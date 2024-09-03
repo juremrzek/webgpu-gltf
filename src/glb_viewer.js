@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_cube_no_walls.glb")
+            "assets/scene_debug.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -150,7 +150,7 @@ function get_shadow_matrix(n, l ,x) {
         },
         primitive: {
             topology: 'triangle-list',
-            cullMode: 'none'
+            cullMode: 'back'
         },
         depthStencil: {
             format: 'depth24plus-stencil8',
@@ -166,29 +166,14 @@ function get_shadow_matrix(n, l ,x) {
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsBindGroup, firstRenderPipeline, swapChainFormat);
 
-    const positions = glbFile.nodes[1].mesh.primitives[0].positions;
-    const positionsBuffer = glbFile.nodes[1].mesh.primitives[0].positions.view.gpuBuffer
-    const indicesBuffer = glbFile.nodes[1].mesh.primitives[0].indices.view.gpuBuffer
-    const modelMatrixData = glbFile.nodes[1].modelMatrix;
-
     const inverse_transpose = mat4.create();
-    mat4.invert(inverse_transpose, modelMatrixData);
-    mat4.transpose(inverse_transpose, inverse_transpose);
+    //mat4.invert(inverse_transpose, modelMatrixData);
+    //mat4.transpose(inverse_transpose, inverse_transpose);
 
     const inverseTransposeBuffer = device.createBuffer(
         {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
     new Float32Array(inverseTransposeBuffer.getMappedRange()).set(inverse_transpose);
     inverseTransposeBuffer.unmap();
-
-    tempCommandEncoder.copyBufferToBuffer(
-        modelMatrixData,
-        0,
-        modelBuffer,
-        0,
-        modelMatrixData.size 
-    );
-    const commands = tempCommandEncoder.finish();
-    device.queue.submit([commands]);
 
 
     // Convert indicies from 16-bit to 32-bit
@@ -224,22 +209,21 @@ function get_shadow_matrix(n, l ,x) {
     glbFile.buildComputeBindGroups(device, computePipeline, computeBindGroupLayout);
 
     const secondViewParamsLayout = device.createBindGroupLayout({
+        label: 'second view params layout',
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
             {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
-            {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
         ]
     });
     const secondViewParamsBindGroup = device.createBindGroup(
-        {layout: viewParamsLayout, entries: [
+        {layout: secondViewParamsLayout, entries: [
             {binding: 0, resource: {buffer: projectionBuffer}},
             {binding: 1, resource: {buffer: viewBuffer}},
-            {binding: 2, resource: {buffer: modelBuffer}},
         ]}
     );
 
     const secondPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [secondViewParamsLayout]
+        bindGroupLayouts: [secondViewParamsLayout, nodeParamsLayout]
     });
     const volumeVertexBuffers = [{
         arrayStride: 16,
@@ -310,22 +294,8 @@ function get_shadow_matrix(n, l ,x) {
             stencilStoreOp: 'store',
         }
     };
-    
-    const secondBundleEncoder = device.createRenderBundleEncoder({
-        colorFormats: [swapChainFormat],
-        depthStencilFormat: 'depth24plus-stencil8',
-    });
-    secondBundleEncoder.setPipeline(secondRenderPipeline);
-    secondBundleEncoder.setVertexBuffer(0, glbFile.nodes[1].mesh.primitives[0].shadowVolumePositionsBuffer);
-    secondBundleEncoder.setBindGroup(0, secondViewParamsBindGroup);
 
-    // Draw the new triangle
-    secondBundleEncoder.setIndexBuffer(glbFile.nodes[1].mesh.primitives[0].shadowVolumeIndicesBuffer,
-        'uint32',
-        0);
-    secondBundleEncoder.drawIndexed(positions.count * 6);
-    //bundleEncoder.draw(positions.count * 7);
-    const secondRenderBundles = [secondBundleEncoder.finish()];
+    const secondRenderBundles = glbFile.buildShadowRenderBundles(device, secondRenderPipeline, secondViewParamsBindGroup);
 
     const thirdRenderPassDesc = {
         colorAttachments: [{
@@ -376,7 +346,7 @@ function get_shadow_matrix(n, l ,x) {
         },
         primitive: {
             topology: 'triangle-list',
-            cullMode: 'none',
+            cullMode: 'back',
         },
         depthStencil: {
             format: 'depth24plus-stencil8',
@@ -466,8 +436,8 @@ function get_shadow_matrix(n, l ,x) {
                 const computePass = commandEncoder.beginComputePass();
                 computePass.setPipeline(computePipeline);
                 computePass.setBindGroup(0, glbFile.nodes[i].mesh.primitives[j].computeBindGroup);
-                const numTriangles = positionsBuffer.size * 2;
-                computePass.dispatchWorkgroups(numTriangles, 1, 1);
+                const numTriangles = glbFile.nodes[i].mesh.primitives[j].positions.view.gpuBuffer.size;
+                computePass.dispatchWorkgroups(numTriangles/32, 1, 1);
 
                 computePass.end();
             }
@@ -489,7 +459,7 @@ function get_shadow_matrix(n, l ,x) {
         numFrames += 1;
         totalTimeMS += end - start;
         fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
-        //requestAnimationFrame(render);
+        requestAnimationFrame(render);
     };
     requestAnimationFrame(render);
 })();

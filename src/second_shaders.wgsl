@@ -14,16 +14,16 @@ struct Mat4Uniform {
 }
 @group(0) @binding(0) var<uniform> projection: Mat4Uniform;
 @group(0) @binding(1) var<uniform> view: Mat4Uniform;
-@group(0) @binding(2) var<uniform> model: Mat4Uniform;
+@group(1) @binding(0) var<uniform> model: Mat4Uniform;
 
 @vertex
 fn second_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    vout.position = projection.m * view.m * model.m * vin.position;
+    vout.position = projection.m * view.m * model.m  * vin.position;
     return vout;
 }
 
 @fragment //only for debugging purposes, we don't draw volumes
 fn second_fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    return float4(1, 1, 0, 1);
+    return float4(1, 1, 0, 0);
 }
