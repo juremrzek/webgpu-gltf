@@ -43,7 +43,7 @@ function get_shadow_matrix(n, l ,x) {
     const depthTextureView = depthTexture.createView();
 
     let shadowDepthTexture = device.createTexture({
-        size: {width: 2048, height: 2048, depthOrArrayLayers: 1},
+        size: {width: 4096, height: 4096, depthOrArrayLayers: 1},
         format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     })
@@ -286,7 +286,7 @@ function get_shadow_matrix(n, l ,x) {
     const render = async () => {
         //t += 0.1;
         const light_projection_matrix = mat4.create();
-        const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(50, 100, t), [0, 0, 0], [0, 1, 0]);
+        const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(25, 50, -25), [0, 0, 0], [0, 1, 0]);
         //ORTHO
         const left = -40;
         const right = 40;
@@ -323,7 +323,7 @@ function get_shadow_matrix(n, l ,x) {
         const end = performance.now();
         numFrames += 1;
         totalTimeMS += end - start;
-        fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
+        fpsDisplay.innerHTML = `Avg. FPS ${(1000 * (numFrames / totalTimeMS))}`;
         requestAnimationFrame(render);
     };
     requestAnimationFrame(render);

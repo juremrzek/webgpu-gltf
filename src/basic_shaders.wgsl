@@ -32,8 +32,8 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
     shadowPos = float4(shadowPos.xy * float2(0.5, -0.5) + float2(0.5, 0.5), shadowPos.z, 1);
     vout.light_vertex_position = shadowPos;
 
-    var light_direction = float4(normalize(float3(50, 100, -100)), 1);
-    var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
+    var light_direction = normalize(float3(-5, 10, 5));
+    var normal_tmp = normalize((inverse_transpose.m * float4(vin.normal, 1.0)).xyz);
     vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
     return vout;
 }
@@ -54,20 +54,20 @@ struct MaterialParams {
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
     //return vec4((material.base_color_factor.xyz * 0.3) + (material.base_color_factor.xyz * fin.brightness * 0.7), 1);
     var visibility = 0.0;
-    //let onePixel = 1.0 / 2048;
-    //for (var y = -1; y <= 1; y++) {
-    //    for (var x = -1; x <= 1; x++) {
-    //        let offset = vec2f(vec2(x, y)) * onePixel;
+    let onePixel = 1.0 / 4096;
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            let offset = vec2f(vec2(x, y)) * onePixel;
 
-            visibility = textureSampleCompare(
+            visibility += textureSampleCompare(
                 shadow_map, shadow_sampler,
-                fin.light_vertex_position.xy , fin.light_vertex_position.z - 0.0007
+                fin.light_vertex_position.xy + offset, fin.light_vertex_position.z - 0.0007
             );
-   //     }
-    //}
-    //visibility /= 9.0;
+        }
+    }
+    visibility /= 9;
     //return vec4(visibility, visibility, visibility, 1);
     var color = material.base_color_factor.xyz;
-    return float4((color * 0.4) + (visibility * color * fin.brightness * 0.6), 1);
+    return float4((color * 0.3) + (visibility * color * fin.brightness * 0.7), 1);
     //let light_factor = min(0.3 + visibility * fin.brightness, 1);
 }
