@@ -26,7 +26,7 @@ function get_shadow_matrix(n, l ,x) {
     const device = await adapter.requestDevice();
     let glbModel;
     const glbFile = await fetch(
-            "http://localhost:8000/scene_floor_cube_on_ground.glb")
+            "assets/scene_dungeon_fixed.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
 
     const canvas = document.getElementById("webgpu-canvas");

@@ -27,8 +27,8 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1.0);
 
-    var light_direction = float4(normalize(float3(1, 1, 0)), 1);
-    var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
+    var light_direction = normalize(float3(-5, 10, 5));
+    var normal_tmp = normalize((inverse_transpose.m * float4(vin.normal, 1.0)).xyz);
     vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
     return vout;
 }

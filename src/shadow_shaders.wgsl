@@ -22,7 +22,7 @@ struct Mat4Uniform {
 @vertex
 fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
-    if (node_id == 1) {
+    if (node_id != 0) {
         vout.position = projection.m * view.m * shadow_transform.m * model.m * float4(vin.position, 1.0);
     }
     else {
@@ -32,6 +32,6 @@ fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn shadow_fragment_main(fin: VertexOutput) -> @location(0) vec4 {
-    return (vec4(0.0, 0.0, 0, 1));
+fn shadow_fragment_main(fin: VertexOutput) -> @location(0) float4 {
+    return (float4(0.0, 0.0, 0, 1));
 }
