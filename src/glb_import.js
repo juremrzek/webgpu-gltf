@@ -236,6 +236,7 @@ export class GLTFPrimitive {
             size: this.computeIndicesBuffer.size * 6,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
+        console.log(inverse_transpose)
 
         const computeBindGroup = device.createBindGroup({
             label: "primitivo",
@@ -323,7 +324,7 @@ export class GLTFNode {
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
         bundleEncoder.setBindGroup(1, this.bindGroup); //node bind group
 
-        for (let i = 0; i < this.mesh.primitives.length/2; ++i) {
+        for (let i = 0; i < this.mesh.primitives.length; ++i) {
             this.mesh.primitives[i].buildRenderBundle(bundleEncoder, renderPipeline);
         }
 
@@ -343,7 +344,7 @@ export class GLTFNode {
             depthStencilFormat: 'depth24plus-stencil8',
         });
         bundleEncoder.setBindGroup(1, this.bindGroup);
-        for(let i=0; i < this.mesh.primitives.length/2; i++) {
+        for(let i=0; i < this.mesh.primitives.length; i++) {
             this.mesh.primitives[i].buildShadowRenderBundle(pipeline, bindGroupLayout, bundleEncoder);
         }
         this.renderBundle = bundleEncoder.finish();

@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_debug.glb")
+            "assets/scene_dungeon.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -165,16 +165,6 @@ function get_shadow_matrix(n, l ,x) {
 
     const firstRenderBundles = glbFile.buildRenderBundles(
         device, viewParamsBindGroup, firstRenderPipeline, swapChainFormat);
-
-    const inverse_transpose = mat4.create();
-    //mat4.invert(inverse_transpose, modelMatrixData);
-    //mat4.transpose(inverse_transpose, inverse_transpose);
-
-    const inverseTransposeBuffer = device.createBuffer(
-        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
-    new Float32Array(inverseTransposeBuffer.getMappedRange()).set(inverse_transpose);
-    inverseTransposeBuffer.unmap();
-
 
     // Convert indicies from 16-bit to 32-bit
     for (let i=0; i<glbFile.nodes.length; i++){
