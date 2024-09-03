@@ -25,10 +25,9 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
      var vout: VertexOutput;
      vout.position = view_proj.m * node_transform.m * float4(vin.position, 1.0);
 
-     var light_direction = float4(1, 0, 0, 1);
-     var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
+     var light_direction = normalize(float3(10, 50, -10));
+     var normal_tmp = normalize((inverse_transpose.m * float4(vin.normal, 1.0)).xyz);
      vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
-     vout.normal = float3(normal_tmp.xyz);
      return vout;
 }
 
@@ -40,13 +39,6 @@ struct MaterialParams {
 };
 
 @group(2) @binding(0) var<uniform> material: MaterialParams;
-
-fn linear_to_srgb(x: f32) -> f32 {
-     if (x <= 0.0031308) {
-          return 12.92 * x;
-     }
-     return 1.055 * pow(x, 1.0 / 2.4) - 0.055;
-}
 
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
