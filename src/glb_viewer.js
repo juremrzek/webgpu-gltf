@@ -167,26 +167,10 @@ function get_shadow_matrix(n, l ,x) {
         device, viewParamsBindGroup, firstRenderPipeline, swapChainFormat);
 
     const positions = glbFile.nodes[1].mesh.primitives[0].positions;
-    const positionsData = glbFile.nodes[1].mesh.primitives[0].positions.view.gpuBuffer
-    const normalsData = glbFile.nodes[1].mesh.primitives[0].normals.view.gpuBuffer
-    const indicesData = glbFile.nodes[1].mesh.primitives[0].indices.view.gpuBuffer
+    const positionsBuffer = glbFile.nodes[1].mesh.primitives[0].positions.view.gpuBuffer
+    const indicesBuffer = glbFile.nodes[1].mesh.primitives[0].indices.view.gpuBuffer
     const modelMatrixData = glbFile.nodes[1].modelMatrix;
 
-    const positionsBuffer = device.createBuffer({
-        label: "positions for volumes",
-        size: positionsData.size,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX |  GPUBufferUsage.COPY_SRC,
-    });
-    const normalsBuffer = device.createBuffer({
-        label: "normals for volumes",
-        size: normalsData.size,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    const indicesBuffer = device.createBuffer({
-        label: "indices for volumes",
-        size: indicesData.size,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDEX
-    });
     const inverse_transpose = mat4.create();
     mat4.invert(inverse_transpose, modelMatrixData);
     mat4.transpose(inverse_transpose, inverse_transpose);
@@ -196,97 +180,29 @@ function get_shadow_matrix(n, l ,x) {
     new Float32Array(inverseTransposeBuffer.getMappedRange()).set(inverse_transpose);
     inverseTransposeBuffer.unmap();
 
-    // Copy data from the original buffer to the new buffer
     tempCommandEncoder.copyBufferToBuffer(
-        positionsData, // Source buffer
-        0,               // Source offset
-        positionsBuffer,       // Destination buffer
-        0,               // Destination offset
-        positionsData.size       // Size of the data to copy
+        modelMatrixData,
+        0,
+        modelBuffer,
+        0,
+        modelMatrixData.size 
     );
-
-    tempCommandEncoder.copyBufferToBuffer(
-        normalsData, // Source buffer
-        0,               // Source offset
-        normalsBuffer,       // Destination buffer
-        0,               // Destination offset
-        normalsData.size       // Size of the data to copy
-    );
-
-    tempCommandEncoder.copyBufferToBuffer(
-        indicesData, // Source buffer
-        0,               // Source offset
-        indicesBuffer,       // Destination buffer
-        0,               // Destination offset
-        indicesData.size       // Size of the data to copy
-    );
-
-    tempCommandEncoder.copyBufferToBuffer(
-        modelMatrixData, // Source buffer
-        0,               // Source offset
-        modelBuffer,       // Destination buffer
-        0,               // Destination offset
-        modelMatrixData.size       // Size of the data to copy
-    );
-
-    // Submit the command encoder to the GPU queue
     const commands = tempCommandEncoder.finish();
     device.queue.submit([commands]);
 
 
-
-
-
-
-    const computeIndicesBindGroupLayout = device.createBindGroupLayout({
-        entries: [
-            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
-            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
-        ],
-    });
-
-    const computeIndicesBuffer = device.createBuffer({
-        size: indicesBuffer.size * 2, // 4x the size to account for extruded vertices
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-
-    const computeIndicesBindGroup = device.createBindGroup({
-        layout: computeIndicesBindGroupLayout,
-        entries: [
-            { binding: 0, resource: { buffer: indicesBuffer } },
-            { binding: 1, resource: { buffer: computeIndicesBuffer } },
-        ],
-    });
-
-    const computeIndicesPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [computeIndicesBindGroupLayout]
-    });
-    const computeIndicesPipeline = device.createComputePipeline({
-        label: "generate indices",
-        layout: computeIndicesPipelineLayout,
-        compute: {
-            module: computeIndicesShadersModule,
-            entryPoint: "main"
+    // Convert indicies from 16-bit to 32-bit
+    for (let i=0; i<glbFile.nodes.length; i++){
+        let primitives = glbFile.nodes[i].mesh.primitives;
+        for (let j=0; j<primitives.length; j++) {
+            primitives[j].buildComputeIndicesBuffer(device, computeIndicesShadersModule);
         }
-    });
-    
-    const commandEncoderIndices = device.createCommandEncoder();
-
-    const computeIndicesPass = commandEncoderIndices.beginComputePass();
-    computeIndicesPass.setPipeline(computeIndicesPipeline);
-    computeIndicesPass.setBindGroup(0, computeIndicesBindGroup);
-    const numTriangles = positions.count * 7;
-    computeIndicesPass.dispatchWorkgroups(numTriangles, 1, 1);
-
-    computeIndicesPass.end();
-
-    device.queue.submit([commandEncoderIndices.finish()]);
-
-
+    }
+    const computeIndicesBuffer = glbFile.nodes[1].mesh.primitives[0].computeIndicesBuffer;
 
 
     const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsData.size * 8,
+        size: positionsBuffer.size * 8,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 

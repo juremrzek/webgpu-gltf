@@ -177,13 +177,14 @@ export class GLTFPrimitive {
         }
     }
 
-    buildComputeIndicesBuffer(device) {
+    buildComputeIndicesBuffer(device, computeIndicesShadersModule) {
         const computeIndicesBindGroupLayout = device.createBindGroupLayout({
             entries: [
                 { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
                 { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
             ],
         });
+        const indicesBuffer = this.indices.view.gpuBuffer;
     
         const computeIndicesBuffer = device.createBuffer({
             size: indicesBuffer.size * 2, // 4x the size to account for extruded vertices
@@ -215,11 +216,13 @@ export class GLTFPrimitive {
         const computeIndicesPass = commandEncoderIndices.beginComputePass();
         computeIndicesPass.setPipeline(computeIndicesPipeline);
         computeIndicesPass.setBindGroup(0, computeIndicesBindGroup);
-        computeIndicesPass.dispatchWorkgroups(positions.count * 7, 1, 1);
+        computeIndicesPass.dispatchWorkgroups(indicesBuffer.size * 7, 1, 1);
     
         computeIndicesPass.end();
     
         device.queue.submit([commandEncoderIndices.finish()]);
+
+        this.computeIndicesBuffer = computeIndicesBuffer;
     }
 }
 
@@ -474,6 +477,7 @@ export async function uploadGLBModel(buffer, device) {
                 const accessor = glbJsonData.accessors[primitive.indices];
                 const viewID = accessor.bufferView;
                 bufferViews[viewID].addUsage(GPUBufferUsage.INDEX);
+                bufferViews[viewID].addUsage(GPUBufferUsage.STORAGE);
                 indices = new GLTFAccessor(bufferViews[viewID], accessor);
             }
             
@@ -483,6 +487,7 @@ export async function uploadGLBModel(buffer, device) {
                 const accessor = glbJsonData.accessors[primitive.attributes[attr]];
                 const viewID = accessor.bufferView;
                 bufferViews[viewID].addUsage(GPUBufferUsage.VERTEX);
+                bufferViews[viewID].addUsage(GPUBufferUsage.STORAGE);
                 if (attr == 'POSITION') {
                     positions = new GLTFAccessor(bufferViews[viewID], accessor);
                 } else if (attr == 'NORMAL') {
