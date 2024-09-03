@@ -224,6 +224,33 @@ export class GLTFPrimitive {
 
         this.computeIndicesBuffer = computeIndicesBuffer;
     }
+
+    buildComputeBindGroup(device, pipeline, computeBindGroupLayout, inverse_transpose) {
+        const positionsBuffer = this.positions.view.gpuBuffer;
+        this.shadowVolumePositionsBuffer = device.createBuffer({
+            size: positionsBuffer.size * 8,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+    
+        this.shadowVolumeIndicesBuffer = device.createBuffer({
+            size: this.computeIndicesBuffer.size * 6,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+        console.log(computeBindGroupLayout)
+
+        const computeBindGroup = device.createBindGroup({
+            label: "primitivo",
+            layout: computeBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: inverse_transpose } },
+                { binding: 1, resource: { buffer: positionsBuffer } },
+                { binding: 2, resource: { buffer: this.computeIndicesBuffer } },
+                { binding: 3, resource: { buffer: this.shadowVolumePositionsBuffer } },
+                { binding: 4, resource: { buffer: this.shadowVolumeIndicesBuffer } },
+            ],
+        });
+        this.computeBindGroup = computeBindGroup;
+    }
 }
 
 export class GLTFMesh {
@@ -297,9 +324,13 @@ export class GLTFNode {
         return this.renderBundle;
     }
 
-    buildComputeRenderBundle(device, pipeline) {
-
+    buildComputeBindGroup(device, pipeline, computeBindGroupLayout) {
+        for(let i=0; i < this.mesh.primitives.length; i++) {
+            this.mesh.primitives[i].buildComputeBindGroup(device, pipeline, computeBindGroupLayout, this.inverse_transpose_uniform);
+        }
     }
+
+    
 
 }
 
@@ -426,14 +457,26 @@ export class GLBModel {
         return renderBundles;
     }
 
-    buildComputeRenderBundles(device, renderPipeline) {
+    buildComputeBindGroups(device, pipeline, computeBindGroupLayout) {
+        for (let i = 0; i < this.nodes.length; ++i) {
+            let n = this.nodes[i];
+            n.buildComputeBindGroup(
+                device,
+                pipeline,
+                computeBindGroupLayout
+            );
+        }
+    }
+
+    buildShadowRenderBundles(device, pipeline, bindGroup) {
         let renderBundles = [];
         for (let i = 0; i < this.nodes.length; ++i) {
             let n = this.nodes[i];
-            const bundle = n.buildComputeRenderBundle(
+            const bundle = n.buildShadowRenderBundle(
                 device,
+                viewParamsBindGroup,
                 renderPipeline,
-            );
+                swapChainFormat);
             renderBundles.push(bundle);
         }
         return renderBundles;

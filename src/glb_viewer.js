@@ -198,27 +198,6 @@ function get_shadow_matrix(n, l ,x) {
             primitives[j].buildComputeIndicesBuffer(device, computeIndicesShadersModule);
         }
     }
-    const computeIndicesBuffer = glbFile.nodes[1].mesh.primitives[0].computeIndicesBuffer;
-
-
-    const shadowVolumePositionsBuffer = device.createBuffer({
-        size: positionsBuffer.size * 8,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-
-    const shadowVolumeCountBuffer = device.createBuffer({
-        size: 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-        mappedAtCreation: true,
-    });
-    new Uint32Array(shadowVolumeCountBuffer.getMappedRange())[0] = 0;
-    shadowVolumeCountBuffer.unmap();
-
-    const shadowVolumeIndicesBuffer = device.createBuffer({
-        size: computeIndicesBuffer.size * 6,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-
 
     const computeBindGroupLayout = device.createBindGroupLayout({
         entries: [
@@ -227,17 +206,6 @@ function get_shadow_matrix(n, l ,x) {
             { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // index buffer (input)
             { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume vertices buffer (output)
             { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // Shadow volume indices buffer (out)
-        ],
-    });
-
-    const computeBindGroup = device.createBindGroup({
-        layout: computeBindGroupLayout,
-        entries: [
-            { binding: 0, resource: { buffer: inverseTransposeBuffer } },
-            { binding: 1, resource: { buffer: positionsBuffer } },
-            { binding: 2, resource: { buffer: computeIndicesBuffer } },
-            { binding: 3, resource: { buffer: shadowVolumePositionsBuffer } },
-            { binding: 4, resource: { buffer: shadowVolumeIndicesBuffer } },
         ],
     });
 
@@ -252,6 +220,8 @@ function get_shadow_matrix(n, l ,x) {
             entryPoint: "main"
         }
     });
+
+    glbFile.buildComputeBindGroups(device, computePipeline, computeBindGroupLayout);
 
     const secondViewParamsLayout = device.createBindGroupLayout({
         entries: [
@@ -341,23 +311,16 @@ function get_shadow_matrix(n, l ,x) {
         }
     };
     
-    const vertexCount = new Uint32Array(1);
-
-    const shadowVolumeVertexCountReadBuffer = device.createBuffer({
-        size: vertexCount.byteLength,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    });
-    
     const secondBundleEncoder = device.createRenderBundleEncoder({
         colorFormats: [swapChainFormat],
         depthStencilFormat: 'depth24plus-stencil8',
     });
     secondBundleEncoder.setPipeline(secondRenderPipeline);
-    secondBundleEncoder.setVertexBuffer(0, shadowVolumePositionsBuffer);
+    secondBundleEncoder.setVertexBuffer(0, glbFile.nodes[1].mesh.primitives[0].shadowVolumePositionsBuffer);
     secondBundleEncoder.setBindGroup(0, secondViewParamsBindGroup);
 
     // Draw the new triangle
-    secondBundleEncoder.setIndexBuffer(shadowVolumeIndicesBuffer,
+    secondBundleEncoder.setIndexBuffer(glbFile.nodes[1].mesh.primitives[0].shadowVolumeIndicesBuffer,
         'uint32',
         0);
     secondBundleEncoder.drawIndexed(positions.count * 6);
@@ -497,13 +460,18 @@ function get_shadow_matrix(n, l ,x) {
         firstRenderPass.executeBundles(firstRenderBundles);
         firstRenderPass.end();
 
-        const computePass = commandEncoder.beginComputePass();
-        computePass.setPipeline(computePipeline);
-        computePass.setBindGroup(0, computeBindGroup);
-        const numTriangles = positions.count * 6;
-        computePass.dispatchWorkgroups(numTriangles, 1, 1);
+        for (let i=0; i<glbFile.nodes.length; i++){
+            let primitives = glbFile.nodes[i].mesh.primitives;
+            for (let j=0; j<primitives.length; j++) {
+                const computePass = commandEncoder.beginComputePass();
+                computePass.setPipeline(computePipeline);
+                computePass.setBindGroup(0, glbFile.nodes[i].mesh.primitives[j].computeBindGroup);
+                const numTriangles = positionsBuffer.size * 2;
+                computePass.dispatchWorkgroups(numTriangles, 1, 1);
 
-        computePass.end();
+                computePass.end();
+            }
+        }
 
         const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
         secondRenderPass.executeBundles(secondRenderBundles);
@@ -517,22 +485,11 @@ function get_shadow_matrix(n, l ,x) {
         device.queue.submit([commandEncoder.finish()]);
         await device.queue.onSubmittedWorkDone();
 
-
-        const computeCommandEncoder = device.createCommandEncoder();
-        computeCommandEncoder.copyBufferToBuffer(
-            shadowVolumeCountBuffer, 0, shadowVolumeVertexCountReadBuffer, 0, vertexCount.byteLength
-        );    
-        device.queue.submit([computeCommandEncoder.finish()]);
-        await shadowVolumeVertexCountReadBuffer.mapAsync(GPUMapMode.READ);
-        shadowVolumeVertexCountReadBuffer.unmap();
-
-        
-
         const end = performance.now();
         numFrames += 1;
         totalTimeMS += end - start;
         fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
-        requestAnimationFrame(render);
+        //requestAnimationFrame(render);
     };
     requestAnimationFrame(render);
 })();

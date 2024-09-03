@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let transformed_normal = normalize((inverseTranspose.m * float4(normal, 1)).xyz);
 
     var facing_light = false;
-    if dot(transformed_normal, l_dir.xyz) > 0.0 {
+    if dot(normal, l_dir.xyz) > 0.0 {
         facing_light = true;
     }
 
