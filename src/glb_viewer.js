@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_final.glb")
+            "assets/scene_cube_no_walls.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -43,15 +43,7 @@ function get_shadow_matrix(n, l ,x) {
         format: "depth24plus-stencil8",
         usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
-    const firstDepthTextureView = firstDepthTexture.createView();
-    //const thirdDepthTextureView = firstDepthTexture.createView();
-
-    const secondDepthTexture = device.createTexture({
-        size: {width: canvas.width, height: canvas.height, depthOrArrayLayers: 1},
-        format: "depth24plus-stencil8",
-        usage: GPUTextureUsage.RENDER_ATTACHMENT
-    });
-    const secondDepthTextureView = secondDepthTexture.createView();
+    const depthTextureView = firstDepthTexture.createView();
 
     const viewParamsLayout = device.createBindGroupLayout({
         entries: [
@@ -64,7 +56,6 @@ function get_shadow_matrix(n, l ,x) {
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
             {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
-            {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
         ]
     });
     const materialBindGroupLayout = device.createBindGroupLayout({
@@ -114,7 +105,7 @@ function get_shadow_matrix(n, l ,x) {
             storeOp: "store"
         }],
         depthStencilAttachment: {
-            view: firstDepthTextureView,
+            view: depthTextureView,
             depthLoadOp: 'clear',
             depthClearValue: 1,
             depthStoreOp: 'store',
@@ -159,7 +150,7 @@ function get_shadow_matrix(n, l ,x) {
         },
         primitive: {
             topology: 'triangle-list',
-            cullMode: 'back'
+            cullMode: 'none'
         },
         depthStencil: {
             format: 'depth24plus-stencil8',
@@ -173,13 +164,13 @@ function get_shadow_matrix(n, l ,x) {
     const firstRenderPipeline = device.createRenderPipeline(firstPipelineDescriptor);
 
     const firstRenderBundles = glbFile.buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, null, null, firstRenderPipeline, swapChainFormat);
+        device, viewParamsBindGroup, firstRenderPipeline, swapChainFormat);
 
-    const positions = glbFile.nodes[8].mesh.primitives[0].positions;
-    const positionsData = glbFile.nodes[8].mesh.primitives[0].positions.view.gpuBuffer
-    const normalsData = glbFile.nodes[8].mesh.primitives[0].normals.view.gpuBuffer
-    const indicesData = glbFile.nodes[8].mesh.primitives[0].indices.view.gpuBuffer
-    const modelMatrixData = glbFile.nodes[8].modelMatrix;
+    const positions = glbFile.nodes[1].mesh.primitives[0].positions;
+    const positionsData = glbFile.nodes[1].mesh.primitives[0].positions.view.gpuBuffer
+    const normalsData = glbFile.nodes[1].mesh.primitives[0].normals.view.gpuBuffer
+    const indicesData = glbFile.nodes[1].mesh.primitives[0].indices.view.gpuBuffer
+    const modelMatrixData = glbFile.nodes[1].modelMatrix;
 
     const positionsBuffer = device.createBuffer({
         label: "positions for volumes",
@@ -346,9 +337,6 @@ function get_shadow_matrix(n, l ,x) {
         }
     });
 
-    const secondProjectionBuffer = device.createBuffer(
-        {size: 4 * 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-
     const secondViewParamsLayout = device.createBindGroupLayout({
         entries: [
             {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: "uniform"}},
@@ -358,7 +346,7 @@ function get_shadow_matrix(n, l ,x) {
     });
     const secondViewParamsBindGroup = device.createBindGroup(
         {layout: viewParamsLayout, entries: [
-            {binding: 0, resource: {buffer: secondProjectionBuffer}},
+            {binding: 0, resource: {buffer: projectionBuffer}},
             {binding: 1, resource: {buffer: viewBuffer}},
             {binding: 2, resource: {buffer: modelBuffer}},
         ]}
@@ -418,8 +406,6 @@ function get_shadow_matrix(n, l ,x) {
                 depthFailOp: 'decrement-wrap',
                 passOp: 'keep',
             },
-            stencilReadMask: 0xFF,
-            stencilWriteMask: 0xFF,
         },
     };
     const secondRenderPipeline = device.createRenderPipeline(secondPipelineDescriptor);
@@ -430,7 +416,7 @@ function get_shadow_matrix(n, l ,x) {
             storeOp: 'store'
         }],
         depthStencilAttachment: {
-            view: firstDepthTextureView,
+            view: depthTextureView,
             depthLoadOp: 'load',
             depthStoreOp: 'store',
             stencilLoadOp: 'clear',
@@ -468,7 +454,7 @@ function get_shadow_matrix(n, l ,x) {
             storeOp: 'store',
         }],
         depthStencilAttachment: {
-            view: firstDepthTextureView,
+            view: depthTextureView,
             depthLoadOp: 'load',
             depthStoreOp: 'store',
             stencilLoadOp: 'load',
@@ -511,7 +497,7 @@ function get_shadow_matrix(n, l ,x) {
         },
         primitive: {
             topology: 'triangle-list',
-            cullMode: 'back',
+            cullMode: 'none',
         },
         depthStencil: {
             format: 'depth24plus-stencil8',
@@ -523,21 +509,19 @@ function get_shadow_matrix(n, l ,x) {
                 depthFailOp: 'keep',
                 passOp: 'keep',
             },
-            stencilReadMask: 0xFF,
-            stencilWriteMask: 0xFF,
         },
     }
 
     const thirdRenderPipeline = device.createRenderPipeline(thirdPipelineDescriptor);
     const thirdRenderBundles = glbFile.buildRenderBundles(
-            device, viewParamsLayout, viewParamsBindGroup, null, null, thirdRenderPipeline, swapChainFormat);
+            device, viewParamsBindGroup, thirdRenderPipeline, swapChainFormat);
 
     const defaultEye = vec3.set(vec3.create(), 3.0, 4.0, 8.0);
     const center = vec3.set(vec3.create(), -5.0, -3.0, 0.0);
     const up = vec3.set(vec3.create(), 0.0, 1.0, 0.0);
     const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     const projection_matrix = mat4.perspective(
-        mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, 1000);
+        mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, null);
     const left = -10;
     const right = 10;
     const bottom = -10;
@@ -592,7 +576,6 @@ function get_shadow_matrix(n, l ,x) {
         const view_matrix = camera.camera;
         device.queue.writeBuffer(projectionBuffer, 0, projection_matrix);
         device.queue.writeBuffer(viewBuffer, 0, view_matrix);
-        device.queue.writeBuffer(secondProjectionBuffer, 0, projection_matrix);
 
         const firstRenderPass = commandEncoder.beginRenderPass(firstRenderPassDesc);
         firstRenderPass.executeBundles(firstRenderBundles);

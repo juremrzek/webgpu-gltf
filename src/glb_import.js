@@ -176,6 +176,51 @@ export class GLTFPrimitive {
             bundleEncoder.draw(this.positions.count);
         }
     }
+
+    buildComputeIndicesBuffer(device) {
+        const computeIndicesBindGroupLayout = device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, 
+            ],
+        });
+    
+        const computeIndicesBuffer = device.createBuffer({
+            size: indicesBuffer.size * 2, // 4x the size to account for extruded vertices
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+    
+        const computeIndicesBindGroup = device.createBindGroup({
+            layout: computeIndicesBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: indicesBuffer } },
+                { binding: 1, resource: { buffer: computeIndicesBuffer } },
+            ],
+        });
+    
+        const computeIndicesPipelineLayout = device.createPipelineLayout({
+            bindGroupLayouts: [computeIndicesBindGroupLayout]
+        });
+        const computeIndicesPipeline = device.createComputePipeline({
+            label: "generate indices",
+            layout: computeIndicesPipelineLayout,
+            compute: {
+                module: computeIndicesShadersModule,
+                entryPoint: "main"
+            }
+        });
+        
+        const commandEncoderIndices = device.createCommandEncoder();
+    
+        const computeIndicesPass = commandEncoderIndices.beginComputePass();
+        computeIndicesPass.setPipeline(computeIndicesPipeline);
+        computeIndicesPass.setBindGroup(0, computeIndicesBindGroup);
+        computeIndicesPass.dispatchWorkgroups(positions.count * 7, 1, 1);
+    
+        computeIndicesPass.end();
+    
+        device.queue.submit([commandEncoderIndices.finish()]);
+    }
 }
 
 export class GLTFMesh {
@@ -212,26 +257,16 @@ export class GLTFNode {
         new Float32Array(inverse_transpose_buffer.getMappedRange()).set(inverse_transpose);
         inverse_transpose_buffer.unmap();
         this.inverse_transpose_uniform = inverse_transpose_buffer;
-        const node_id_buffer = device.createBuffer(
-            {size: 4, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true});
-
-        new Uint32Array(node_id_buffer.getMappedRange())[0] = this.id;
-        node_id_buffer.unmap();
-        this.node_id_uniform = node_id_buffer;
     }
 
     buildRenderBundle(device,
-        viewParamsLayout,
         viewParamsBindGroup,
-        shadowParamsLayout,
-        shadowParamsBindGroup,
         renderPipeline,
         swapChainFormat) {
         let nodeParamsLayout = device.createBindGroupLayout({
             entries: [
                 {binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
                 {binding: 1, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}},
-                {binding: 2, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform'}}
             ]
         });
 
@@ -240,7 +275,6 @@ export class GLTFNode {
             entries: [
                 {binding: 0, resource: {buffer: this.modelMatrix}},
                 {binding: 1, resource: {buffer: this.inverse_transpose_uniform}},
-                {binding: 2, resource: {buffer: this.node_id_uniform}}
             ]
         });
         
@@ -248,13 +282,9 @@ export class GLTFNode {
             colorFormats: [swapChainFormat],
             depthStencilFormat: 'depth24plus-stencil8',
         });
-        /*if (renderPipeline.label == "Third Pipeline"){
-            bundleEncoder.setBindGroup(2, shadowParamsBindGroup);
-        }*/
 
         bundleEncoder.setBindGroup(0, viewParamsBindGroup);
         bundleEncoder.setBindGroup(1, this.bindGroup); //node bind group
-
 
         for (let i = 0; i < this.mesh.primitives.length; ++i) {
             this.mesh.primitives[i].buildRenderBundle(bundleEncoder, renderPipeline);
@@ -262,6 +292,10 @@ export class GLTFNode {
 
         this.renderBundle = bundleEncoder.finish();
         return this.renderBundle;
+    }
+
+    buildComputeRenderBundle(device, pipeline) {
+
     }
 
 }
@@ -374,17 +408,14 @@ export class GLBModel {
     }
 
     buildRenderBundles(
-        device, viewParamsLayout, viewParamsBindGroup, shadowParamsLayout, shadowParamsBindGroup, renderPipeline, swapChainFormat) {
+        device, viewParamsBindGroup, renderPipeline, swapChainFormat) {
         let renderBundles = [];
         for (let i = 0; i < this.nodes.length; ++i) {
             console.log(i)
             let n = this.nodes[i];
             const bundle = n.buildRenderBundle(
                 device,
-                viewParamsLayout,
                 viewParamsBindGroup,
-                shadowParamsLayout,
-                shadowParamsBindGroup,
                 renderPipeline,
                 swapChainFormat);
             renderBundles.push(bundle);
@@ -392,17 +423,14 @@ export class GLBModel {
         return renderBundles;
     }
 
-    buildVolumeRenderBundles(device, viewParamsLayout, viewParamsBindGroup, renderPipeline, swapChainFormat) {
+    buildComputeRenderBundles(device, renderPipeline) {
         let renderBundles = [];
         for (let i = 0; i < this.nodes.length; ++i) {
-            console.log(i)
             let n = this.nodes[i];
-            const bundle = n.buildVolumeRenderBundle(
+            const bundle = n.buildComputeRenderBundle(
                 device,
-                viewParamsLayout,
-                viewParamsBindGroup,
                 renderPipeline,
-                swapChainFormat);
+            );
             renderBundles.push(bundle);
         }
         return renderBundles;

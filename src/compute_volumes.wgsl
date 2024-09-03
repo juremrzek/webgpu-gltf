@@ -7,11 +7,6 @@ struct Mat4Uniform {
     m: mat4x4<f32>
 }
 
-struct Vertex {
-    p: vec3<f32>,
-    _padding: f32
-}
-
 @group(0) @binding(0) var<uniform> inverseTranspose: Mat4Uniform;
 @group(0) @binding(1) var<storage, read> positions: array<f32>;
 @group(0) @binding(2) var<storage, read> indices: array<u32>;
@@ -38,24 +33,23 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     let vertex_index = index * 3;
 
-    let l_dir = normalize(float3(-10, 10, 5));
+    let l_dir = normalize(float3(-10, 5, 5));
 
     var v0 = float4(getPosition(indices[index + 0]), 1);
     var v1 = float4(getPosition(indices[index + 1]), 1);
     var v2 = float4(getPosition(indices[index + 2]), 1);
-    var infinite_vertex = float4(l_dir, 0);
 
     let normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
     let transformed_normal = normalize((inverseTranspose.m * float4(normal, 1)).xyz);
 
     var facing_light = false;
-    if dot(transformed_normal, l_dir.xyz) < 0.0 {
+    if dot(transformed_normal, l_dir.xyz) > 0.0 {
         facing_light = true;
     }
 
     var v_0 = v0;
     var v_1 = v1;
-    var v_2 = infinite_vertex;
+    var infinite_vertex = vec4(l_dir, 0);
     if(facing_light) {
         v_0 = v1;
         v_1 = v0;
@@ -63,11 +57,10 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     setPosition(vertex_index + 3, v_0);
     setPosition(vertex_index + 4, v_1);
-    setPosition(vertex_index + 5, v_2);
+    setPosition(vertex_index + 5, infinite_vertex);
 
     v_0 = v1;
     v_1 = v2;
-    v_2 = infinite_vertex;
     if(facing_light) {
         v_0 = v2;
         v_1 = v1;
@@ -75,11 +68,10 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     
     setPosition(vertex_index + 6, v_0);
     setPosition(vertex_index + 7, v_1);
-    setPosition(vertex_index + 8, v_2);
+    setPosition(vertex_index + 8, infinite_vertex);
 
     v_0 = v2;
     v_1 = v0;
-    v_2 = infinite_vertex;
     if(facing_light) {
         v_0 = v0;
         v_1 = v2;
@@ -87,7 +79,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     
     setPosition(vertex_index + 9, v_0);
     setPosition(vertex_index + 10, v_1);
-    setPosition(vertex_index + 11, v_2);
+    setPosition(vertex_index + 11, infinite_vertex);
 
     for (var i = 0u; i <= 9u; i = i+1u) {
        outputIndices[vertex_index + i] = vertex_index + i; 

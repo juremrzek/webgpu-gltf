@@ -25,7 +25,7 @@ struct Mat4Uniform {
 fn third_vertex_main(vin: VertexInput) -> VertexOutput {
     var vout: VertexOutput;
     vout.position = projection.m * view.m * model.m * float4(vin.position, 1);
-    var light_direction = float4(normalize(float3(-10, 10, 5)), 1);
+    var light_direction = float4(normalize(float3(-10, 5, 5)), 1);
     var normal_tmp = normalize(inverse_transpose.m * float4(vin.normal, 1.0));
     vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
     return vout;

@@ -9,7 +9,6 @@ struct VertexInput {
 }
 struct VertexOutput {
     @builtin(position) position: float4,
-    @location(1) intensity: float,
 }
 struct Mat4Uniform {
     m: mat4x4<f32>
@@ -37,8 +36,6 @@ struct MaterialParams {
 
 @fragment
 fn first_fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    //var color = material.base_color_factor.xyz;
-    //return float4((color * 0.4) + (color * fin.intensity * 0.6), 1);
-    return material.base_color_factor;
+    return float4(material.base_color_factor.xyz * 0.3, 1);
 }
 
