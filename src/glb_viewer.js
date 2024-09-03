@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_dungeon.glb")
+            "assets/scene_dungeon_fixed.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
@@ -397,6 +397,22 @@ function get_shadow_matrix(n, l ,x) {
     const aspect = 1.0;
     //const near = -200;
     //const far = 30;
+
+    const newCommandEncoder = device.createCommandEncoder();
+    for (let i=0; i<glbFile.nodes.length; i++){
+        let primitives = glbFile.nodes[i].mesh.primitives;
+        for (let j=0; j<primitives.length; j++) {
+            const computePass = newCommandEncoder.beginComputePass();
+            computePass.setPipeline(computePipeline);
+            computePass.setBindGroup(0, glbFile.nodes[i].mesh.primitives[j].computeBindGroup);
+            const numTriangles = glbFile.nodes[i].mesh.primitives[j].positions.view.gpuBuffer.size;
+            computePass.dispatchWorkgroups(numTriangles/32, 1, 1);
+
+            computePass.end();
+        }
+    }
+    device.queue.submit([newCommandEncoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
     
 
     const fpsDisplay = document.getElementById("fps");
@@ -420,19 +436,6 @@ function get_shadow_matrix(n, l ,x) {
         firstRenderPass.executeBundles(firstRenderBundles);
         firstRenderPass.end();
 
-        for (let i=0; i<glbFile.nodes.length; i++){
-            let primitives = glbFile.nodes[i].mesh.primitives;
-            for (let j=0; j<primitives.length; j++) {
-                const computePass = commandEncoder.beginComputePass();
-                computePass.setPipeline(computePipeline);
-                computePass.setBindGroup(0, glbFile.nodes[i].mesh.primitives[j].computeBindGroup);
-                const numTriangles = glbFile.nodes[i].mesh.primitives[j].positions.view.gpuBuffer.size;
-                computePass.dispatchWorkgroups(numTriangles/32, 1, 1);
-
-                computePass.end();
-            }
-        }
-
         const secondRenderPass = commandEncoder.beginRenderPass(secondRenderPassDesc);
         secondRenderPass.executeBundles(secondRenderBundles);
         secondRenderPass.end();
@@ -448,7 +451,7 @@ function get_shadow_matrix(n, l ,x) {
         const end = performance.now();
         numFrames += 1;
         totalTimeMS += end - start;
-        fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
+        fpsDisplay.innerHTML = `Avg. FPS ${(numFrames / totalTimeMS) * 1000}`;
         requestAnimationFrame(render);
     };
     requestAnimationFrame(render);
