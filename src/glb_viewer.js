@@ -43,7 +43,7 @@ function get_shadow_matrix(n, l ,x) {
     const depthTextureView = depthTexture.createView();
 
     let shadowDepthTexture = device.createTexture({
-        size: {width: 4096, height: 4096, depthOrArrayLayers: 1},
+        size: {width: 2048, height: 2048, depthOrArrayLayers: 1},
         format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     })
@@ -280,10 +280,10 @@ function get_shadow_matrix(n, l ,x) {
     
 
     const fpsDisplay = document.getElementById("fps");
-    let numFrames = 0;
-    let totalTimeMS = 0;
+    let frames_count = 0;
+    let total_time = 0;
     let t = -100;
-    const render = async () => {
+    async function render() {
         //t += 0.1;
         const light_projection_matrix = mat4.create();
         const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(25, 50, -25), [0, 0, 0], [0, 1, 0]);
@@ -298,7 +298,7 @@ function get_shadow_matrix(n, l ,x) {
         const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
 
 
-        let start = performance.now();
+        const start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
         renderPassDesc.colorAttachments[0].view = colorTextureView
 
@@ -321,9 +321,11 @@ function get_shadow_matrix(n, l ,x) {
         await device.queue.onSubmittedWorkDone();
 
         const end = performance.now();
-        numFrames += 1;
-        totalTimeMS += end - start;
-        fpsDisplay.innerHTML = `Avg. FPS ${(1000 * (numFrames / totalTimeMS))}`;
+        frames_count += 1;
+        const delta_time = end - start;
+        total_time += delta_time;
+        const average_fps = (frames_count / total_time) * 1000;
+        fpsDisplay.innerHTML = `Avg. FPS ${average_fps}`;
         requestAnimationFrame(render);
     };
     requestAnimationFrame(render);

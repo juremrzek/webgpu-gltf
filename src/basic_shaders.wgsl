@@ -54,7 +54,7 @@ struct MaterialParams {
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
     //return vec4((material.base_color_factor.xyz * 0.3) + (material.base_color_factor.xyz * fin.brightness * 0.7), 1);
     var visibility = 0.0;
-    let onePixel = 1.0 / 4096;
+    let onePixel = 1.0 / 2048;
     for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
             let offset = vec2f(vec2(x, y)) * onePixel;
