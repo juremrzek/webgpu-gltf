@@ -33,7 +33,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     let index = global_id.x * 3;
     let vertex_index = index * 3;
 
-    let l_dir = -normalize(float3(10, 5, -10));
+    let l_dir = normalize(float3(-5, -10, 5));
 
     var v0 = float4(getPosition(indices[index + 0]), 1);
     var v1 = float4(getPosition(indices[index + 1]), 1);

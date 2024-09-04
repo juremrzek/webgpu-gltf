@@ -28,7 +28,7 @@ function get_shadow_matrix(n, l ,x) {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     const glbFile = await fetch(
-            "assets/scene_dungeon_fixed.glb")
+            "assets/scene_brazier.glb")
             .then(res => res.arrayBuffer().then(async (buf) => await uploadGLBModel(buf, device)));
 
     console.log(glbFile);
