@@ -26,7 +26,7 @@ function get_shadow_matrix(n, l ,x) {
     const device = await adapter.requestDevice();
     let glbModel;
     const glbFile = await fetch(
-            "assets/scene_dungeon_fixed.glb")
+            "assets/scene_brazier.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
 
     const canvas = document.getElementById("webgpu-canvas");
@@ -267,17 +267,6 @@ function get_shadow_matrix(n, l ,x) {
     camera.pan([-250, -70]);
     camera.rotate([0, 0], [-200, 0]);
     controller.registerForCanvas(canvas);
-
-    const n = [0, 1, 0, 0]
-    const l = [10, 10, 0];
-    const x = [0, -0.01, 0]
-    const shadow_matrix = get_shadow_matrix(n, l, x);
-
-    const fov = (2 * Math.PI) / 5;
-    const aspect = 1.0;
-    //const near = -200;
-    //const far = 30;
-    
 
     const fpsDisplay = document.getElementById("fps");
     let frames_count = 0;
