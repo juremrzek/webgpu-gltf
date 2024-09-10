@@ -9,8 +9,7 @@ struct VertexInput {
 }
 struct VertexOutput {
      @builtin(position) position: float4,
-     @location(1) normal: float3,
-     @location(2) brightness: float
+     @location(1) brightness: float
 }
 struct Mat4Uniform {
      m: mat4x4<f32>,
@@ -25,7 +24,7 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
      var vout: VertexOutput;
      vout.position = view_proj.m * node_transform.m * float4(vin.position, 1.0);
 
-     var light_direction = normalize(float3(10, 50, -10));
+     var light_direction = normalize(float3(-10, 0, -10));
      var normal_tmp = normalize((inverse_transpose.m * float4(vin.normal, 1.0)).xyz);
      vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
      return vout;
@@ -42,6 +41,6 @@ struct MaterialParams {
 
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
-     var color = float4(material.base_color_factor.xyz, 1.0);
-     return (color * 0.3) + (color * fin.brightness * 0.7);
+     var color = material.base_color_factor.xyz;
+     return float4((color * 0.3) + (color * fin.brightness * 0.7), 1);
 }
