@@ -33,5 +33,5 @@ fn shadow_vertex_main(vin: VertexInput) -> VertexOutput {
 
 @fragment
 fn shadow_fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    return (float4(0.0, 0.0, 0, 1));
+    return (float4(0.0, 0.0, 0, 0.6));
 }
