@@ -24,7 +24,7 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
      var vout: VertexOutput;
      vout.position = view_proj.m * node_transform.m * float4(vin.position, 1.0);
 
-     var light_direction = normalize(float3(-10, 0, -10));
+     var light_direction = normalize(float3(-5, 10, 5));
      var normal_tmp = normalize((inverse_transpose.m * float4(vin.normal, 1.0)).xyz);
      vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
      return vout;
