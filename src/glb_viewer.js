@@ -18,6 +18,10 @@ function get_shadow_matrix(n, l ,x) {
     ]);
 }
 
+function get_shadow_matrix_directional(n, l, x) {
+    
+}
+
 (async () => {
     if (navigator.gpu === undefined) return;
     const adapter = await navigator.gpu.requestAdapter();
