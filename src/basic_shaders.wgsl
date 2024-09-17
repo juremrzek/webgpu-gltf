@@ -32,7 +32,7 @@ fn vertex_main(vin: VertexInput) -> VertexOutput {
     shadowPos = float4(shadowPos.xy * float2(0.5, -0.5) + float2(0.5, 0.5), shadowPos.z, 1);
     vout.light_vertex_position = shadowPos;
 
-    var light_direction = normalize(float3(-5, 10, 5));
+    var light_direction = normalize(float3(5, 10, -5));
     var normal_tmp = normalize((inverse_transpose.m * float4(vin.normal, 1.0)).xyz);
     vout.brightness = max(dot(light_direction, normal_tmp), 0.0);
     return vout;

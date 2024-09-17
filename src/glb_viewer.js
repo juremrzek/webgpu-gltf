@@ -26,7 +26,7 @@ function get_shadow_matrix(n, l ,x) {
     const device = await adapter.requestDevice();
     let glbModel;
     const glbFile = await fetch(
-            "assets/scene_brazier.glb")
+            "assets/scene_dungeon_fixed.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
 
     const canvas = document.getElementById("webgpu-canvas");
@@ -274,16 +274,19 @@ function get_shadow_matrix(n, l ,x) {
     let t = -100;
     async function render() {
         //t += 0.1;
-        const light_projection_matrix = mat4.create();
-        const light_view_matrix = mat4.lookAt(mat4.create(), vec3.fromValues(25, 50, -25), [0, 0, 0], [0, 1, 0]);
+        const light_direction = [5, 10, -5];
+        const origin = [0, 0, 0];
+        const light_camera_local = vec3.scale(mat4.create(), light_direction, 15);
+        const light_camera_global = vec3.add(mat4.create(), origin, light_camera_local);
+        const light_view_matrix = mat4.lookAt(mat4.create(), light_camera_global, origin, [0, 1, 0]);
         //ORTHO
         const left = -40;
         const right = 40;
         const bottom = -40;
         const top = 40;
-        const near = -500;
+        const near = 0.1;
         const far = 200;
-        mat4.ortho(light_projection_matrix, left, right, bottom, top, near, far);
+        const light_projection_matrix = mat4.ortho(mat4.create(), left, right, bottom, top, near, far);
         const light_view_projection_matrix = mat4.multiply(mat4.create(), light_projection_matrix, light_view_matrix);
 
 
