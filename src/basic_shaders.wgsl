@@ -52,21 +52,10 @@ struct MaterialParams {
 
 @fragment
 fn fragment_main(fin: VertexOutput) -> @location(0) float4 {
-    //return vec4((material.base_color_factor.xyz * 0.3) + (material.base_color_factor.xyz * fin.brightness * 0.7), 1);
-    var visibility = 0.0;
-    let onePixel = 1.0 / 2048;
-    for (var y = -1; y <= 1; y++) {
-        for (var x = -1; x <= 1; x++) {
-            let offset = vec2f(vec2(x, y)) * onePixel;
-
-            visibility += textureSampleCompare(
-                shadow_map, shadow_sampler,
-                fin.light_vertex_position.xy + offset, fin.light_vertex_position.z - 0.0007
-            );
-        }
-    }
-    visibility /= 9;
-    //return vec4(visibility, visibility, visibility, 1);
+    var visibility = textureSampleCompare(
+        shadow_map, shadow_sampler,
+        fin.light_vertex_position.xy, fin.light_vertex_position.z - 0.0007
+    );
     var color = material.base_color_factor.xyz;
     return float4((color * 0.3) + (visibility * color * fin.brightness * 0.7), 1);
     //let light_factor = min(0.3 + visibility * fin.brightness, 1);

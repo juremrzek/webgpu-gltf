@@ -43,7 +43,7 @@ function get_shadow_matrix(n, l ,x) {
     const depthTextureView = depthTexture.createView();
 
     let shadowDepthTexture = device.createTexture({
-        size: {width: 2048, height: 2048, depthOrArrayLayers: 1},
+        size: {width: 1024, height: 1024, depthOrArrayLayers: 1},
         format: "depth32float",
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     })
@@ -269,8 +269,9 @@ function get_shadow_matrix(n, l ,x) {
     controller.registerForCanvas(canvas);
 
     const fpsDisplay = document.getElementById("fps");
-    let frames_count = 0;
-    let total_time = 0;
+    let numFrames = 0;
+    let totalTimeMS = 0;
+    let render_times = [];
     let t = -100;
     async function render() {
         //t += 0.1;
@@ -313,12 +314,27 @@ function get_shadow_matrix(n, l ,x) {
         await device.queue.onSubmittedWorkDone();
 
         const end = performance.now();
-        frames_count += 1;
-        const delta_time = end - start;
-        total_time += delta_time;
-        const average_fps = (frames_count / total_time) * 1000;
-        fpsDisplay.innerHTML = `Avg. FPS ${average_fps}`;
-        requestAnimationFrame(render);
+        numFrames += 1;
+        let currentTimeMS =  end - start
+        totalTimeMS += currentTimeMS;
+        render_times.push(currentTimeMS);
+        fpsDisplay.innerHTML = `Avg. FPS ${Math.floor(numFrames / totalTimeMS * 1000)}, total fragmes: ${numFrames}`;
+        if (numFrames < 11000) {
+            requestAnimationFrame(render);
+        }
+        else{
+            console.log("-------------------------");
+            render_times = render_times.splice(0, 1000);
+            let average_fps = numFrames / totalTimeMS;
+            console.log("Average FPS: ", average_fps * 1000);
+            let standard_deviation = 0;
+            render_times.forEach(frame => {
+                standard_deviation += (frame - average_fps) ** 2;
+            })
+            standard_deviation = Math.sqrt(standard_deviation / numFrames);
+            console.log("Standard deviation: ", standard_deviation)
+            console.log(render_times.length);
+        }
     };
     requestAnimationFrame(render);
 })();
