@@ -30,7 +30,7 @@ function get_shadow_matrix_directional(n, l, x) {
     const device = await adapter.requestDevice();
     let glbModel;
     const glbFile = await fetch(
-            "assets/scene_cube_no_walls.glb")
+            "assets/scene_dungeon_fixed.glb")
             .then(res => res.arrayBuffer().then(async (buf) => glbModel = await uploadGLBModel(buf, device)));
 
     const canvas = document.getElementById("webgpu-canvas");
@@ -260,6 +260,7 @@ function get_shadow_matrix_directional(n, l, x) {
     const fpsDisplay = document.getElementById("fps");
     let numFrames = 0;
     let totalTimeMS = 0;
+    let render_times = [];
     const render = async () => {
         let start = performance.now();
         const colorTextureView = context.getCurrentTexture().createView();
@@ -291,9 +292,26 @@ function get_shadow_matrix_directional(n, l, x) {
 
         const end = performance.now();
         numFrames += 1;
-        totalTimeMS += end - start;
-        fpsDisplay.innerHTML = `Avg. FPS ${Math.round(1000.0 * numFrames / totalTimeMS)}`;
-        requestAnimationFrame(render);
+        let currentTimeMS =  end - start
+        totalTimeMS += currentTimeMS;
+        render_times.push(currentTimeMS);
+        fpsDisplay.innerHTML = `Avg. FPS ${Math.floor(numFrames / totalTimeMS * 1000)}, total fragmes: ${numFrames}`;
+        if (numFrames < 11000) {
+            requestAnimationFrame(render);
+        }
+        else{
+            console.log("-------------------------");
+            render_times = render_times.splice(0, 1000);
+            let average_fps = numFrames / totalTimeMS;
+            console.log("Average FPS: ", average_fps * 1000);
+            let standard_deviation = 0;
+            render_times.forEach(frame => {
+                standard_deviation += (frame - average_fps) ** 2;
+            })
+            standard_deviation = Math.sqrt(standard_deviation / numFrames);
+            console.log("Standard deviation: ", standard_deviation)
+            console.log(render_times.length);
+        }
     };
     requestAnimationFrame(render);
 })();
