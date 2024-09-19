@@ -361,12 +361,6 @@ function get_shadow_matrix(n, l ,x) {
     const camera = new ArcballCamera(defaultEye, center, up, 2, [canvas.width, canvas.height]);
     const projection_matrix = mat4.perspective(
         mat4.create(), 50 * Math.PI / 180.0, canvas.width / canvas.height, 0.1, null);
-    const left = -10;
-    const right = 10;
-    const bottom = -10;
-    const top = 10;
-    const near = -1000000;
-    const ortho_matrix = mat4.ortho(mat4.create(), left, right, bottom, top, near, null);
 
     const controller = new Controller();
     controller.mousemove = function (prev, cur, evt) {
@@ -387,16 +381,6 @@ function get_shadow_matrix(n, l ,x) {
     camera.pan([-250, -70]);
     camera.rotate([0, 0], [-200, 0]);
     controller.registerForCanvas(canvas);
-
-    const n = [0, 1, 0, 0]
-    const l = [10, 10, 0];
-    const x = [0, -0.01, 0]
-    const shadow_matrix = get_shadow_matrix(n, l, x);
-
-    const fov = (2 * Math.PI) / 5;
-    const aspect = 1.0;
-    //const near = -200;
-    //const far = 30;
 
     const newCommandEncoder = device.createCommandEncoder();
     for (let i=0; i<glbFile.nodes.length; i++){
